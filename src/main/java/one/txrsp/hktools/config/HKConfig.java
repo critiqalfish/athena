@@ -1,0 +1,16 @@
+package one.txrsp.hktools.config;
+
+import com.teamresourceful.resourcefulconfig.api.annotations.Config;
+import com.teamresourceful.resourcefulconfig.api.annotations.ConfigEntry;
+import com.teamresourceful.resourcefulconfig.api.annotations.ConfigOption;
+
+@Config(value="HKTools")
+public class HKConfig {
+    @ConfigEntry(id="yaw", translation="yaw")
+    @ConfigOption.Range(min=-180, max=180)
+    public static float yaw = 0;
+
+    @ConfigEntry(id="pitch", translation="pitch")
+    @ConfigOption.Range(min=-90, max=90)
+    public static float pitch = 0;
+}

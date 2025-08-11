@@ -4,9 +4,15 @@ import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.lit
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument;
 
 import com.mojang.brigadier.arguments.FloatArgumentType;
+import com.teamresourceful.resourcefulconfig.api.client.ResourcefulConfigScreen;
+import com.teamresourceful.resourcefulconfig.api.types.ResourcefulConfig;
+import com.teamresourceful.resourcefulconfig.client.ConfigsScreen;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+import one.txrsp.hktools.HKTools;
+import one.txrsp.hktools.config.HKConfig;
 import one.txrsp.hktools.features.FramignAuto;
 
 public class HKToolsCommand {
@@ -15,19 +21,9 @@ public class HKToolsCommand {
             literal("hktools")
                 .executes(context -> {
                     context.getSource().sendFeedback(Text.literal("[HKTools] ").formatted(Formatting.LIGHT_PURPLE).append(Text.literal("hi ").formatted(Formatting.WHITE)).append(Text.literal("<3").formatted(Formatting.BOLD)));
+                    MinecraftClient.getInstance().send(() -> MinecraftClient.getInstance().setScreenAndRender(ResourcefulConfigScreen.getFactory(HKTools.MOD_ID).apply(null)));
                     return 1;
                 })
-                .then(literal("rotation")
-                        .then(argument("yaw", FloatArgumentType.floatArg(-180, 180))
-                        .then(argument("pitch", FloatArgumentType.floatArg(-90, 90))
-                            .executes(context -> {
-                                FramignAuto.yaw = FloatArgumentType.getFloat(context, "yaw");
-                                FramignAuto.pitch = FloatArgumentType.getFloat(context, "pitch");
-                                context.getSource().sendFeedback(Text.literal("[HKTools] ").formatted(Formatting.LIGHT_PURPLE).append(Text.literal("set yaw/pitch successfully").formatted(Formatting.WHITE)));
-                                return 1;
-                            })
-                        ))
-                )
         ));
     }
 }

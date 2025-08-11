@@ -1,4 +1,4 @@
-package one.txrsp.hktools.utils;
+package one.txrsp.hktools.render;
 
 
 import com.mojang.blaze3d.pipeline.BlendFunction;
@@ -32,21 +32,41 @@ public class RenderUtils {
             RenderLayer.MultiPhaseParameters.builder().build(false)
     );
 
-    public static void renderFilledBox(MatrixStack matrices, BlockPos pos, float r, float g, float b, float alpha) {
+    public static void renderBlockMark(MatrixStack matrices, BlockPos pos, float r, float g, float b, float alpha, boolean withEyeLine) {
         MinecraftClient client = MinecraftClient.getInstance();
         Camera camera = client.gameRenderer.getCamera();
         Vec3d camPos = camera.getPos();
 
         Box box = new Box(pos).offset(-camPos.x, -camPos.y, -camPos.z);
+        Box beam = new Box(pos).offset(-camPos.x, -camPos.y, -camPos.z);
+        beam = beam.contract(0.4);
+        beam = beam.offset(0, 0.6, 0);
+        beam = beam.withMaxY(420);
 
         Tessellator tessellator = Tessellator.getInstance();
         BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
 
         drawBoxFaces(buffer, box, r, g, b, alpha);
+        drawBoxFaces(buffer, beam, r, g, b, alpha);
 
         BuiltBuffer built = buffer.end();
 
         renderLayer.draw(built);
+        tessellator.clear();
+
+        if (withEyeLine) {
+            Vec3d to = box.getCenter();
+            Vec3d from = Vec3d.ZERO;
+
+            buffer = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINE_STRIP, VertexFormats.POSITION_COLOR);
+
+            buffer.vertex(from.toVector3f()).color(r, g, b, alpha);
+            buffer.vertex(to.toVector3f()).color(r, g, b, alpha);
+
+            built = buffer.end();
+
+            RenderLayer.getDebugLineStrip(3).draw(built);
+        }
     }
 
     private static void drawBoxFaces(VertexConsumer buffer, Box box, float r, float g, float b, float a) {

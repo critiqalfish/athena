@@ -19,6 +19,11 @@ repositories {
 	maven {
 		url "https://cursemaven.com"
 	}
+	maven {
+		// Location of the maven that hosts Team Resourceful's jars.
+		name = "Team Resourceful Maven"
+		url = "https://maven.teamresourceful.com/repository/maven-public/"
+	}
 }
 
 dependencies {
@@ -32,6 +37,7 @@ dependencies {
 
 	modImplementation "curse.maven:auth-me-356643:6351772"
 	modImplementation "curse.maven:resourceful-config-714059:6746161"
+	modImplementation "com.teamresourceful.resourcefulconfig:resourcefulconfig-fabric-$minecraft_version:$rconfig_version"
 	
 }
 

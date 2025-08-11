@@ -1,8 +1,10 @@
 package one.txrsp.hktools;
 
+import com.teamresourceful.resourcefulconfig.api.loader.Configurator;
 import net.fabricmc.api.ClientModInitializer;
 
 import one.txrsp.hktools.commands.HKToolsCommand;
+import one.txrsp.hktools.config.HKConfig;
 import one.txrsp.hktools.features.FramignAuto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,6 +12,7 @@ import org.slf4j.LoggerFactory;
 public class HKTools implements ClientModInitializer {
 	public static final String MOD_ID = "hktools";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+	public static final Configurator CONFIG = new Configurator(MOD_ID);
 
 	@Override
 	public void onInitializeClient() {
@@ -17,5 +20,6 @@ public class HKTools implements ClientModInitializer {
 
 		HKToolsCommand.init();
 		FramignAuto.init();
+		CONFIG.register(HKConfig.class);
 	}
 }

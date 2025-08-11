@@ -4,23 +4,20 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Position;
 import net.minecraft.util.math.Vec3d;
+import one.txrsp.hktools.config.HKConfig;
 import one.txrsp.hktools.utils.Utils;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.Objects;
 
-import static one.txrsp.hktools.HKTools.LOGGER;
-import static one.txrsp.hktools.utils.RenderUtils.renderFilledBox;
+import static one.txrsp.hktools.render.RenderUtils.renderBlockMark;
 
 public class FramignAuto {
     private static KeyBinding keybind;
@@ -28,8 +25,6 @@ public class FramignAuto {
     private static boolean wasActive = false;
     private static int direction = 0;
     private static BlockPos stoppedBlock = null;
-    public static float yaw = 0;
-    public static float pitch = -59;
 
     public static void init() {
         keybind = KeyBindingHelper.registerKeyBinding(new KeyBinding(
@@ -53,7 +48,7 @@ public class FramignAuto {
                 }
                 wasActive = true;
 
-                lerpRotationTo(yaw, pitch);
+                lerpRotationTo(HKConfig.yaw, HKConfig.pitch);
 
                 if (Objects.equals(getBlockLeft().getTranslationKey(), "block.minecraft.sea_lantern")) {
                     direction = 1;
@@ -103,7 +98,7 @@ public class FramignAuto {
             MinecraftClient client = MinecraftClient.getInstance();
             if (client.world == null || client.player == null) return;
 
-            if (stoppedBlock != null) renderFilledBox(context.matrixStack(), stoppedBlock, 1f, 0f, 0.2f, 0.9f);
+            if (stoppedBlock != null) renderBlockMark(context.matrixStack(), stoppedBlock, 1f, 0f, 0.2f, 0.9f, false);
         });
 
     }
