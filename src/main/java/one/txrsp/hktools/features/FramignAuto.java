@@ -11,12 +11,14 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.Vec3i;
 import one.txrsp.hktools.config.HKConfig;
 import one.txrsp.hktools.utils.Utils;
 import org.lwjgl.glfw.GLFW;
 
-import java.util.Objects;
+import java.util.*;
 
+import static one.txrsp.hktools.HKTools.DEBUG;
 import static one.txrsp.hktools.render.RenderUtils.renderBlockMark;
 
 public class FramignAuto {
@@ -25,8 +27,15 @@ public class FramignAuto {
     private static boolean wasActive = false;
     private static int direction = 0;
     private static BlockPos stoppedBlock = null;
+    private static List<String> heldKeys = new ArrayList<>();
+    public static List<String> actionPointsList = new ArrayList<>();
+    public static Map<String, KeyBinding> keybindsTranslation;
+    private static Vec3d lastPos = null;
+    private static int stillTicks = 0;
 
     public static void init() {
+        actionPointsList.add("empty");
+
         keybind = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.hktools.key_framign",
                 InputUtil.Type.KEYSYM,
@@ -35,8 +44,24 @@ public class FramignAuto {
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (keybindsTranslation == null && client.options != null) {
+                keybindsTranslation = Map.of(
+                        "W", client.options.forwardKey,
+                        "A", client.options.leftKey,
+                        "S", client.options.backKey,
+                        "D", client.options.rightKey
+                );
+            }
             if (client.player == null || client.currentScreen != null) return;
-            if (!Utils.isInGarden()) {stoppedBlock = null; return;}
+            if (actionPointsList.contains("empty")) {
+                actionPointsList.clear();
+                Collections.addAll(actionPointsList, HKConfig.actionPoints);
+            }
+            if (!DEBUG) {
+                if (!Utils.isInGarden()) {stoppedBlock = null; return;}
+            }
+
+            Vec3d currentPos = client.player.getPos();
 
             if (keybind.wasPressed()) active = !active;
 
@@ -46,44 +71,51 @@ public class FramignAuto {
                     client.options.pauseOnLostFocus = false;
                     stoppedBlock = null;
                 }
-                wasActive = true;
+
+                if (lastPos != null && currentPos.distanceTo(lastPos) < 0.001) {
+                    stillTicks++;
+                }
+                else {
+                    stillTicks = 0;
+                }
+
+                lastPos = currentPos;
 
                 lerpRotationTo(HKConfig.yaw, HKConfig.pitch);
 
-                if (Objects.equals(getBlockLeft().getTranslationKey(), "block.minecraft.sea_lantern")) {
-                    direction = 1;
-                }
-                else if (Objects.equals(getBlockRight().getTranslationKey(), "block.minecraft.sea_lantern")) {
-                    direction = -1;
-                }
-                else if (Objects.equals(getBlockLeft().getTranslationKey(), "block.minecraft.glowstone") || Objects.equals(getBlockRight().getTranslationKey(), "block.minecraft.glowstone")) {
-                    client.options.forwardKey.setPressed(false);
-                    client.options.leftKey.setPressed(false);
-                    client.options.rightKey.setPressed(false);
-                    client.options.attackKey.setPressed(false);
+                for (String s : HKConfig.actionPoints) {
+                    if (s.startsWith(client.player.getBlockPos().toString())) {
+                        if (!wasActive || stillTicks >= 1) {
+                            String keys = s.substring(s.lastIndexOf("}") + 1);
+                            heldKeys.clear();
+                            for (char k : keys.toCharArray()) {
+                                heldKeys.add(String.valueOf(k));
+                            }
 
-                    if (direction != 0) client.player.networkHandler.sendChatCommand("warp garden");
-
-                    direction = 0;
+                            client.options.forwardKey.setPressed(false);
+                            client.options.leftKey.setPressed(false);
+                            client.options.rightKey.setPressed(false);
+                            client.options.backKey.setPressed(false);
+                        }
+                    }
                 }
 
-                if (direction == -1) {
-                    client.options.forwardKey.setPressed(true);
+                for (String key : heldKeys) {
+                    if (Objects.equals(key, ".")) {
+                        client.player.networkHandler.sendChatCommand("warp garden");
+                        break;
+                    }
+                    keybindsTranslation.get(key).setPressed(true);
                     client.options.attackKey.setPressed(true);
-                    client.options.leftKey.setPressed(true);
-                    client.options.rightKey.setPressed(false);
                 }
-                else if (direction == 1) {
-                    client.options.forwardKey.setPressed(true);
-                    client.options.attackKey.setPressed(true);
-                    client.options.rightKey.setPressed(true);
-                    client.options.leftKey.setPressed(false);
-                }
+
+                wasActive = true;
             }
             else if (wasActive) {
                 client.options.forwardKey.setPressed(false);
                 client.options.leftKey.setPressed(false);
                 client.options.rightKey.setPressed(false);
+                client.options.backKey.setPressed(false);
                 client.options.attackKey.setPressed(false);
 
                 wasActive = false;
@@ -97,10 +129,23 @@ public class FramignAuto {
         WorldRenderEvents.AFTER_ENTITIES.register(context -> {
             MinecraftClient client = MinecraftClient.getInstance();
             if (client.world == null || client.player == null) return;
+            if (!DEBUG) {
+                if (!Utils.isInGarden()) return;
+            }
 
-            if (stoppedBlock != null) renderBlockMark(context.matrixStack(), stoppedBlock, 1f, 0f, 0.2f, 0.9f, false);
+            if (stoppedBlock != null) renderBlockMark(context.matrixStack(), stoppedBlock, 1f, 0f, 0.2f, 0.9f, false, "");
+
+            if (HKConfig.showActionPoints && !actionPointsList.contains("empty")) {
+                for (String p : actionPointsList) {
+                    String[] parts = p.substring(p.indexOf("{") + 1, p.lastIndexOf("}")).split(", ");
+                    Vec3i coords = new Vec3i(Integer.parseInt(parts[0].split("=")[1]), Integer.parseInt(parts[1].split("=")[1]), Integer.parseInt(parts[2].split("=")[1]));
+                    BlockPos pos = new BlockPos(coords);
+                    String text = p.substring(p.lastIndexOf("}") + 1);
+                    text = Objects.equals(text, ".") ? "warp" : text;
+                    renderBlockMark(context.matrixStack(), pos, 0.2f, 0.3f, 1f, 0.5f, false, text);
+                }
+            }
         });
-
     }
 
     private static BlockPos getBlockOffsetPerpendicular(int direction) {

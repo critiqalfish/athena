@@ -1,14 +1,12 @@
 package one.txrsp.hktools.utils;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.scoreboard.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
-
-import static one.txrsp.hktools.HKTools.LOGGER;
 
 public class Utils {
     public static boolean isInGarden() {
@@ -39,6 +37,22 @@ public class Utils {
                 }
             }
         });
+
+        return lines;
+    }
+
+    public static List<String> getTablistLines() {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.world == null || mc.player == null) return Collections.emptyList();
+
+        List<String> lines = new ArrayList<>();
+        List<PlayerListEntry> entries = mc.getNetworkHandler().getListedPlayerListEntries().stream().toList();
+        for (PlayerListEntry entry : entries) {
+            if (entry.getDisplayName() != null) {
+                String line = entry.getDisplayName().getString().strip();
+                if (!line.isEmpty()) lines.add(line);
+            }
+        }
 
         return lines;
     }

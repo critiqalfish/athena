@@ -3,11 +3,11 @@ package one.txrsp.hktools.commands;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument;
 
-import com.mojang.brigadier.arguments.FloatArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.context.CommandContext;
 import com.teamresourceful.resourcefulconfig.api.client.ResourcefulConfigScreen;
-import com.teamresourceful.resourcefulconfig.api.types.ResourcefulConfig;
-import com.teamresourceful.resourcefulconfig.client.ConfigsScreen;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -20,10 +20,43 @@ public class HKToolsCommand {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
             literal("hktools")
                 .executes(context -> {
-                    context.getSource().sendFeedback(Text.literal("[HKTools] ").formatted(Formatting.LIGHT_PURPLE).append(Text.literal("hi ").formatted(Formatting.WHITE)).append(Text.literal("<3").formatted(Formatting.BOLD)));
+                    HKPrint(context, Text.literal("hi ").formatted(Formatting.WHITE).append(Text.literal("<3").formatted(Formatting.BOLD)));
                     MinecraftClient.getInstance().send(() -> MinecraftClient.getInstance().setScreenAndRender(ResourcefulConfigScreen.getFactory(HKTools.MOD_ID).apply(null)));
                     return 1;
                 })
+                .then(literal("points")
+                    .then(literal("delete")
+                        .executes(context -> {
+                            boolean removed = FramignAuto.actionPointsList.removeIf(s -> s.startsWith(MinecraftClient.getInstance().player.getBlockPos().toString()));
+                            if (removed) HKPrint(context, Text.literal("removed this point").formatted(Formatting.WHITE));
+                            else HKPrint(context, Text.literal("no point to remove").formatted(Formatting.WHITE));
+                            HKConfig.actionPoints = FramignAuto.actionPointsList.toArray(new String[0]);
+                            HKTools.CONFIG.saveConfig(HKConfig.class);
+                            return 1;
+                        })
+                    )
+                    .then(literal("add")
+                        .then(argument("args", StringArgumentType.string())
+                            .executes(context -> {
+                                String keys = StringArgumentType.getString(context, "args");
+                                if (!FramignAuto.actionPointsList.contains(MinecraftClient.getInstance().player.getBlockPos().toString() + keys.toUpperCase())) {
+                                    FramignAuto.actionPointsList.add(MinecraftClient.getInstance().player.getBlockPos().toString() + keys.toUpperCase());
+                                    HKConfig.actionPoints = FramignAuto.actionPointsList.toArray(new String[0]);
+                                    HKTools.CONFIG.saveConfig(HKConfig.class);
+                                    HKPrint(context, Text.literal("added this point").formatted(Formatting.WHITE));
+                                }
+                                else {
+                                    HKPrint(context, Text.literal("already a point here").formatted(Formatting.WHITE));
+                                }
+                                return 1;
+                            })
+                        )
+                    )
+                )
         ));
+    }
+
+    public static void HKPrint(CommandContext<FabricClientCommandSource> ctx, Text text) {
+        ctx.getSource().sendFeedback(Text.literal("[HKTools] ").formatted(Formatting.LIGHT_PURPLE).append(text));
     }
 }

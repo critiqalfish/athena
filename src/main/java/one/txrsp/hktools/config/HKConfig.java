@@ -13,4 +13,14 @@ public class HKConfig {
     @ConfigEntry(id="pitch", translation="pitch")
     @ConfigOption.Range(min=-90, max=90)
     public static float pitch = 0;
+
+    @ConfigEntry(id="pestESP", translation="pestESP")
+    public static boolean pestESP = false;
+
+    @ConfigEntry(id="showActionPoints", translation="show action points")
+    public static boolean showActionPoints = false;
+
+    @ConfigEntry(id="actionPoints", translation="action points")
+    //@ConfigOption.Hidden()
+    public static String[] actionPoints = new String[]{};
 }
