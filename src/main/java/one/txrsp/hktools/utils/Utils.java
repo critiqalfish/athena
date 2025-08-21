@@ -3,6 +3,7 @@ package one.txrsp.hktools.utils;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.scoreboard.*;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -56,6 +57,30 @@ public class Utils {
 
         return lines;
     }
+
+    public static boolean allVisibleChunksLoaded(MinecraftClient client) {
+        if (client.world == null || client.player == null) return false;
+
+        int renderDist = 5;
+        BlockPos playerPos = client.player.getBlockPos();
+
+        int playerChunkX = playerPos.getX() >> 4;
+        int playerChunkZ = playerPos.getZ() >> 4;
+
+        for (int dx = -renderDist; dx <= renderDist; dx++) {
+            for (int dz = -renderDist; dz <= renderDist; dz++) {
+                int cx = playerChunkX + dx;
+                int cz = playerChunkZ + dz;
+
+                if (!client.world.getChunkManager().isChunkLoaded(cx, cz)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
 
     private static String stripFormatting(String input) {
         return input.replaceAll("\uD83C\uDF6B|\uD83D\uDCA3|\uD83D\uDC7D|\uD83D\uDD2E|\uD83D\uDC0D|\uD83D\uDC7E|\uD83C\uDF20|\uD83C\uDF6D|\u26BD|\uD83C\uDFC0|\uD83D\uDC79|\uD83C\uDF81|\uD83C\uDF89|\uD83C\uDF82|\uD83D\uDD2B", "");

@@ -27,11 +27,10 @@ public class PathFollower {
     private static List<BlockPos> path = new ArrayList<>();
     private static int currentIndex = 0;
     public static boolean following = false;
+    public static boolean found = false;
     private static int flightToggleTimer = 4;
     private static float yawVelocity = 0;
     private static float pitchVelocity = 0;
-    private static boolean stopYaw = false;
-    private static boolean stopPitch = false;
 
     public static void init() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
@@ -99,10 +98,9 @@ public class PathFollower {
         path = AStarPathfinder.findPath(playerPos, to, world);
         if (!path.isEmpty()) {
             following = true;
+            found = false;
             currentIndex = 0;
             flightToggleTimer = 4;
-            stopYaw = false;
-            stopPitch = false;
             return true;
         }
         else {
@@ -125,8 +123,9 @@ public class PathFollower {
         if (distance < 1) {
             currentIndex++;
             if (currentIndex >= path.size()) {
-                stopAllMovement();
                 following = false;
+                found = true;
+                stopAllMovement();
                 return;
             }
             targetNode = path.get(currentIndex);
@@ -143,7 +142,9 @@ public class PathFollower {
         double ez = targetCenter.z - eyePos.z;
 
         float yaw = (float) MathHelper.wrapDegrees(Math.toDegrees(Math.atan2(ez, ex)) - 90.0);
-        float pitch = (float) MathHelper.clamp(-Math.toDegrees(Math.atan2(ey, Math.sqrt(ex * ex + ez * ez))), -20, 20);
+        float pitch = (float) -Math.toDegrees(Math.atan2(ey, Math.sqrt(ex * ex + ez * ez)));
+        if (currentIndex == path.size() - 1) pitch = 75;
+        else pitch = MathHelper.clamp(pitch, -20, 20);
 
         Vec3d vel = mc.player.getVelocity();
         double dot = vel.normalize().dotProduct(dir.normalize()); // 1 = moving toward node
@@ -169,8 +170,7 @@ public class PathFollower {
         }
 
         if (mc.player.getAbilities().flying) {
-            double deadZone = 0.5;   // tolerance range
-            double softZone = 1.5;   // further threshold for strong correction
+            double zone = 0.5;
 
             Vec3d lookVec = mc.player.getRotationVec(1.0f).normalize();
             Vec3d frontPos = mc.player.getPos().add(lookVec.multiply(1.0));
@@ -181,29 +181,24 @@ public class PathFollower {
                 jump.setPressed(true);
                 sneak.setPressed(false);
             } else {
-                if (dy > softZone) {
-                    // Far below target -> strong ascend
+                if (dy > zone) {
                     jump.setPressed(true);
                     sneak.setPressed(false);
-                } else if (dy < -softZone) {
-                    // Far above target -> strong descend
-                    sneak.setPressed(true);
-                    jump.setPressed(false);
-                } else if (dy > deadZone) {
-                    // Slightly below target -> gentle ascend
-                    jump.setPressed(true);
-                    sneak.setPressed(false);
-                } else if (dy < -deadZone) {
-                    // Slightly above target -> gentle descend
+                } else if (dy < -zone) {
                     sneak.setPressed(true);
                     jump.setPressed(false);
                 } else {
-                    // Inside deadzone -> hold altitude
                     jump.setPressed(false);
                     sneak.setPressed(false);
                 }
             }
         }
+    }
+
+    public static void stop() {
+        following = false;
+        found = false;
+        stopAllMovement();
     }
 
     private static void stopAllMovement() {

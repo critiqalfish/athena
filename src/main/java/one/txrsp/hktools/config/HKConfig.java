@@ -17,6 +17,10 @@ public class HKConfig {
     @ConfigEntry(id="pestESP", translation="pestESP")
     public static boolean pestESP = false;
 
+    @ConfigEntry(id="autoPestThreshold", translation="auto-pest threshold")
+    @ConfigOption.Range(min=1, max=8)
+    public static int autoPestThreshold = 4;
+
     @ConfigEntry(id="showActionPoints", translation="show action points")
     public static boolean showActionPoints = false;
 

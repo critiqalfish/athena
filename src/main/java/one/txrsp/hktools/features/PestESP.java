@@ -20,7 +20,7 @@ import java.util.List;
 import static one.txrsp.hktools.HKTools.DEBUG;
 
 public class PestESP {
-    private static final Box gardenBarnAABB = new Box(new Vec3d(-46, 65, -46), new Vec3d(46, 90, 46));
+    private static final Box gardenBarnBB = new Box(new Vec3d(-46, 65, -46), new Vec3d(46, 90, 46));
     public static List<Integer> pestPlots = new ArrayList<>();
     public static List<Box> pests = new ArrayList<>();
     public static int totalPests = 0;
@@ -55,7 +55,7 @@ public class PestESP {
                 if (entity instanceof ArmorStandEntity as) {
                     if (as.isInvisible() && !as.getEquippedStack(EquipmentSlot.HEAD).isEmpty() && as.getEquippedStack(EquipmentSlot.HEAD).isOf(Items.PLAYER_HEAD)) {
                         Box shrinkBox = as.getBoundingBox().withMinY(as.getBoundingBox().maxY - as.getBoundingBox().getLengthX());
-                        pests.add(shrinkBox.expand(0.1));
+                        if (!gardenBarnBB.intersects(shrinkBox)) pests.add(shrinkBox.expand(0.1));
                     }
                 }
             }

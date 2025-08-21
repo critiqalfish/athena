@@ -1,6 +1,7 @@
 package one.txrsp.hktools.pathfinding;
 
 import net.minecraft.block.DoorBlock;
+import net.minecraft.block.SoulSandBlock;
 import net.minecraft.block.TrapdoorBlock;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
@@ -30,6 +31,9 @@ public class AStarPathfinder {
         PriorityQueue<Node> open = new PriorityQueue<>(Comparator.comparingDouble(n -> n.f));
         Map<BlockPos, Node> openMap = new HashMap<>();
         Set<BlockPos> closed = new HashSet<>();
+
+        if (world.getBlockState(start).getBlock() instanceof SoulSandBlock) start = start.up();
+        if (world.getBlockState(goal).getBlock() instanceof SoulSandBlock) goal = goal.up();
 
         Node startNode = new Node();
         startNode.pos = start;
@@ -106,6 +110,9 @@ public class AStarPathfinder {
         ClientWorld world = MinecraftClient.getInstance().world;
         double base = current.pos.getSquaredDistance(neighbor);
 
+        int dy = Math.abs(neighbor.getY() - current.pos.getY());
+        base += dy * 2.0;
+
         if (current.parent != null) {
             int dx1 = current.pos.getX() - current.parent.pos.getX();
             int dz1 = current.pos.getZ() - current.parent.pos.getZ();
@@ -154,17 +161,20 @@ public class AStarPathfinder {
         var state = world.getBlockState(pos);
 
         if (state.isAir()) return true;
-
         if (!state.getFluidState().isEmpty()) return true;
-
         if (state.getBlock() instanceof DoorBlock && state.get(DoorBlock.OPEN)) return true;
-
         if (state.getBlock() instanceof TrapdoorBlock && state.get(TrapdoorBlock.OPEN)) return true;
 
-        if (state.getCollisionShape(world, pos).isEmpty()) return true;
+        var shape = state.getCollisionShape(world, pos);
+        if (shape.isEmpty()) return true;
+
+        if (shape.getBoundingBox().maxY < 1.0) {
+            return false;
+        }
 
         return false;
     }
+
 
     private static boolean canTravelDirectly(BlockPos from, BlockPos to, World world) {
         Vec3d start = new Vec3d(from.getX() + 0.5, from.getY() + 0.5, from.getZ() + 0.5);

@@ -38,9 +38,15 @@ public class HKToolsCommand {
                     .then(literal("add")
                         .then(argument("args", StringArgumentType.string())
                             .executes(context -> {
-                                String keys = StringArgumentType.getString(context, "args");
-                                if (!FramignAuto.actionPointsList.contains(MinecraftClient.getInstance().player.getBlockPos().toString() + keys.toUpperCase())) {
-                                    FramignAuto.actionPointsList.add(MinecraftClient.getInstance().player.getBlockPos().toString() + keys.toUpperCase());
+                                String keys = StringArgumentType.getString(context, "args").toUpperCase();
+                                for (char c : keys.toCharArray()) {
+                                    if ("WASD.".indexOf(c) == -1) {
+                                        HKPrint(context, Text.literal("only WASD or . allowed").formatted(Formatting.WHITE));
+                                        return 1;
+                                    }
+                                }
+                                if (!FramignAuto.actionPointsList.contains(MinecraftClient.getInstance().player.getBlockPos().toString() + keys)) {
+                                    FramignAuto.actionPointsList.add(MinecraftClient.getInstance().player.getBlockPos().toString() + keys);
                                     HKConfig.actionPoints = FramignAuto.actionPointsList.toArray(new String[0]);
                                     HKTools.CONFIG.saveConfig(HKConfig.class);
                                     HKPrint(context, Text.literal("added this point").formatted(Formatting.WHITE));
