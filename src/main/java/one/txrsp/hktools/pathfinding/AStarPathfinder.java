@@ -157,7 +157,7 @@ public class AStarPathfinder {
         return smoothPath(path, MinecraftClient.getInstance().world);
     }
 
-    private static boolean isPassable(World world, BlockPos pos) {
+    public static boolean isPassable(World world, BlockPos pos) {
         var state = world.getBlockState(pos);
 
         if (state.isAir()) return true;

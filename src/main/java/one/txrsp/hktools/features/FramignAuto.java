@@ -39,6 +39,7 @@ public class FramignAuto {
     private static BlockPos originBlock;
     private static int currentPlot;
     private static boolean waitForTP = false;
+    private static boolean autoPestNextWarp = false;
 
     public static void init() {
         actionPointsList.add("empty");
@@ -102,27 +103,12 @@ public class FramignAuto {
 
                 lastPos = currentPos;
 
-                if (PestESP.totalPests >= HKConfig.autoPestThreshold && !isPestRemoving) {
-                    isPestRemoving = true;
-                    originPlot = currentPlot;
-                    originSlot = client.player.getInventory().getSelectedSlot();
-                    originBlock = client.player.getBlockPos();
-                    for (int i = 0; i < 9; i++) {
-                        ItemStack stack = client.player.getInventory().getStack(i);
-                        if (!stack.isEmpty() && stack.getName().getString().contains("Vacuum")) {
-                            client.player.getInventory().setSelectedSlot(i);
-                            break;
-                        }
-                    }
-
-                    client.options.forwardKey.setPressed(false);
-                    client.options.leftKey.setPressed(false);
-                    client.options.rightKey.setPressed(false);
-                    client.options.backKey.setPressed(false);
-                    client.options.attackKey.setPressed(false);
+                if (PestESP.totalPests >= HKConfig.autoPestThreshold && !isPestRemoving && HKConfig.autoPest) {
+                    if (HKConfig.autoPestWarpWait) autoPestNextWarp = true;
+                    else initiateAutoPest(client);
                 }
 
-                if (isPestRemoving) {
+                if (isPestRemoving && HKConfig.autoPest) {
                     if (!PestESP.pestPlots.isEmpty()) {
                         if (!waitForTP && currentPlot != PestESP.pestPlots.getFirst()) {
                             waitForTP = true;
@@ -145,6 +131,15 @@ public class FramignAuto {
                                 } else {
                                     PathFollower.stop();
                                 }
+                            } else if (!PestESP.pests.isEmpty() && PathFollower.goal.getSquaredDistance(PestESP.pests.getFirst().getCenter()) > 256) {
+                                LOGGER.info("recalc");
+                                Box box = PestESP.pests.getFirst();
+                                BlockPos pestPos = BlockPos.ofFloored(
+                                        (box.minX + box.maxX) / 2.0,
+                                        box.maxY + 8,
+                                        (box.minZ + box.maxZ) / 2.0
+                                );
+                                PathFollower.pathfind(pestPos);
                             }
                         } else if (currentPlot != PestESP.pestPlots.getFirst()) {
                             client.options.forwardKey.setPressed(true);
@@ -156,9 +151,15 @@ public class FramignAuto {
                         PathFollower.stop();
                         client.options.useKey.setPressed(false);
                         client.options.forwardKey.setPressed(false);
-                        client.player.networkHandler.sendChatCommand("plottp " + originPlot);
                         client.player.getInventory().setSelectedSlot(originSlot);
-                        wasPestRemoving = true;
+                        client.player.networkHandler.sendChatCommand("plottp " + originPlot);
+                        if (HKConfig.autoPestWarpWait) {
+                            wasPestRemoving = false;
+                            client.player.networkHandler.sendChatCommand("warp garden");
+                        } else {
+                            wasPestRemoving = true;
+                            client.player.networkHandler.sendChatCommand("plottp " + originPlot);
+                        }
                     }
                 }
 
@@ -203,7 +204,12 @@ public class FramignAuto {
                     if (Math.abs(MathHelper.wrapDegrees(client.player.getYaw() - HKConfig.yaw)) < 15) {
                         for (String key : heldKeys) {
                             if (Objects.equals(key, ".")) {
-                                client.player.networkHandler.sendChatCommand("warp garden");
+                                if (autoPestNextWarp) {
+                                    autoPestNextWarp = false;
+                                    initiateAutoPest(client);
+                                } else {
+                                    client.player.networkHandler.sendChatCommand("warp garden");
+                                }
                                 break;
                             }
                             keybindsTranslation.get(key).setPressed(true);
@@ -223,6 +229,9 @@ public class FramignAuto {
 
                 PathFollower.stop();
 
+                isPestRemoving = false;
+                wasPestRemoving = false;
+                waitForTP = false;
                 wasActive = false;
                 stoppedBlock = client.player.getBlockPos();
                 client.options.pauseOnLostFocus = true;
@@ -251,6 +260,26 @@ public class FramignAuto {
                 }
             }
         });
+    }
+
+    private static void initiateAutoPest (MinecraftClient mc) {
+        isPestRemoving = true;
+        originPlot = currentPlot;
+        originSlot = mc.player.getInventory().getSelectedSlot();
+        originBlock = mc.player.getBlockPos();
+        for (int i = 0; i < 9; i++) {
+            ItemStack stack = mc.player.getInventory().getStack(i);
+            if (!stack.isEmpty() && stack.getName().getString().contains("Vacuum")) {
+                mc.player.getInventory().setSelectedSlot(i);
+                break;
+            }
+        }
+
+        mc.options.forwardKey.setPressed(false);
+        mc.options.leftKey.setPressed(false);
+        mc.options.rightKey.setPressed(false);
+        mc.options.backKey.setPressed(false);
+        mc.options.attackKey.setPressed(false);
     }
 
     private static void lerpRotationTo(float yaw, float pitch) {

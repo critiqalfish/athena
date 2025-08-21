@@ -17,7 +17,13 @@ public class HKConfig {
     @ConfigEntry(id="pestESP", translation="pestESP")
     public static boolean pestESP = false;
 
-    @ConfigEntry(id="autoPestThreshold", translation="auto-pest threshold")
+    @ConfigEntry(id="autoPest", translation="autoPest")
+    public static boolean autoPest = false;
+
+    @ConfigEntry(id="autoPestWarpWait", translation="autoPest wait for warp")
+    public static boolean autoPestWarpWait = false;
+
+    @ConfigEntry(id="autoPestThreshold", translation="autoPest threshold")
     @ConfigOption.Range(min=1, max=8)
     public static int autoPestThreshold = 4;
 

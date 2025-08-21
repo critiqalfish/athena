@@ -21,6 +21,7 @@ import java.util.List;
 
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
+import static one.txrsp.hktools.HKTools.LOGGER;
 import static one.txrsp.hktools.commands.HKToolsCommand.HKPrint;
 
 public class PathFollower {
@@ -31,6 +32,7 @@ public class PathFollower {
     private static int flightToggleTimer = 4;
     private static float yawVelocity = 0;
     private static float pitchVelocity = 0;
+    public static BlockPos goal;
 
     public static void init() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
@@ -98,6 +100,7 @@ public class PathFollower {
         path = AStarPathfinder.findPath(playerPos, to, world);
         if (!path.isEmpty()) {
             following = true;
+            goal = to;
             found = false;
             currentIndex = 0;
             flightToggleTimer = 4;
@@ -143,7 +146,7 @@ public class PathFollower {
 
         float yaw = (float) MathHelper.wrapDegrees(Math.toDegrees(Math.atan2(ez, ex)) - 90.0);
         float pitch = (float) -Math.toDegrees(Math.atan2(ey, Math.sqrt(ex * ex + ez * ez)));
-        if (currentIndex == path.size() - 1) pitch = 75;
+        if (currentIndex == path.size() - 1) pitch = 80;
         else pitch = MathHelper.clamp(pitch, -20, 20);
 
         Vec3d vel = mc.player.getVelocity();
@@ -157,7 +160,7 @@ public class PathFollower {
         KeyBinding sneak = mc.options.sneakKey;
 
         if (Math.abs(MathHelper.wrapDegrees(mc.player.getYaw() - yaw)) < 15) {
-            if (horizontalDist < 0.4 || vel.length() > 0.4) {
+            if (vel.length() > 0.4) {
                 forward.setPressed(false);
                 back.setPressed(true);
             } else {
@@ -173,7 +176,8 @@ public class PathFollower {
             double zone = 0.5;
 
             Vec3d lookVec = mc.player.getRotationVec(1.0f).normalize();
-            Vec3d frontPos = mc.player.getPos().add(lookVec.multiply(1.0));
+            Vec3d flatLook = new Vec3d(lookVec.x, 0, lookVec.z).normalize();
+            Vec3d frontPos = mc.player.getPos().add(flatLook);
             BlockPos blockInFront = BlockPos.ofFloored(frontPos);
             BlockState frontState = world.getBlockState(blockInFront);
 
