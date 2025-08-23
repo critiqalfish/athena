@@ -127,6 +127,10 @@ public class AStarPathfinder {
         if (isPassable(world, neighbor) && isPassable(world, neighbor.up())) {
             if (!isPassable(world, neighbor.up(2))) {
                 base += 20.0;
+            } else {
+                if (world.getBlockState(neighbor).getBlock() instanceof TrapdoorBlock && world.getBlockState(neighbor).get(TrapdoorBlock.OPEN)) {
+                    base += 2.0;
+                }
             }
         }
 

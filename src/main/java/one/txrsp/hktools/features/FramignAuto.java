@@ -39,7 +39,11 @@ public class FramignAuto {
     private static BlockPos originBlock;
     private static int currentPlot;
     private static boolean waitForTP = false;
+    private static boolean waitForWarp = false;
     private static boolean autoPestNextWarp = false;
+    private static float yawVelocity = 0;
+    private static float pitchVelocity = 0;
+    private static boolean rotate = false;
 
     public static void init() {
         actionPointsList.add("empty");
@@ -78,7 +82,7 @@ public class FramignAuto {
                         line = line.substring(0, line.lastIndexOf("x"));
                     }
                     if (line.contains("⏣")) line = line.replace("⏣", "");
-                    currentPlot = Integer.parseInt(line.strip());
+                    if (!line.strip().equals("n")) currentPlot = Integer.parseInt(line.strip());
                 }
             }
 
@@ -88,7 +92,7 @@ public class FramignAuto {
 
             if (active) {
                 if (!wasActive) {
-                    client.inGameHud.getChatHud().addMessage(Text.literal("[HKTools] ").formatted(Formatting.LIGHT_PURPLE).append(Text.literal("farmer working now :)").formatted(Formatting.WHITE)));
+                    Utils.HKPrint(Text.literal("farmer working :)").formatted(Formatting.WHITE));
                     client.options.pauseOnLostFocus = false;
                     stoppedBlock = null;
                     waitForTP = false;
@@ -96,19 +100,24 @@ public class FramignAuto {
 
                 if (lastPos != null && currentPos.distanceTo(lastPos) < 0.001) {
                     stillTicks++;
-                }
-                else {
+                } else {
                     stillTicks = 0;
                 }
 
                 lastPos = currentPos;
 
                 if (PestESP.totalPests >= HKConfig.autoPestThreshold && !isPestRemoving && HKConfig.autoPest) {
-                    if (HKConfig.autoPestWarpWait) autoPestNextWarp = true;
-                    else initiateAutoPest(client);
+                    if (HKConfig.autoPestWarpWait) {
+                        autoPestNextWarp = true;
+                    } else {
+                        initiateAutoPest(client);
+                        Utils.HKPrint(Text.literal("killing pests").formatted(Formatting.WHITE));
+                    }
                 }
 
                 if (isPestRemoving && HKConfig.autoPest) {
+                    rotate = false;
+
                     if (!PestESP.pestPlots.isEmpty()) {
                         if (!waitForTP && currentPlot != PestESP.pestPlots.getFirst()) {
                             waitForTP = true;
@@ -145,6 +154,7 @@ public class FramignAuto {
                             client.options.forwardKey.setPressed(true);
                         }
                     } else {
+                        Utils.HKPrint(Text.literal("killed all pests").formatted(Formatting.WHITE));
                         PestESP.totalPests = 0;
                         isPestRemoving = false;
                         waitForTP = false;
@@ -152,7 +162,6 @@ public class FramignAuto {
                         client.options.useKey.setPressed(false);
                         client.options.forwardKey.setPressed(false);
                         client.player.getInventory().setSelectedSlot(originSlot);
-                        client.player.networkHandler.sendChatCommand("plottp " + originPlot);
                         if (HKConfig.autoPestWarpWait) {
                             wasPestRemoving = false;
                             client.player.networkHandler.sendChatCommand("warp garden");
@@ -164,6 +173,8 @@ public class FramignAuto {
                 }
 
                 if (wasPestRemoving) {
+                    rotate = false;
+
                     if (PathFollower.found) {
                         PathFollower.stop();
                         client.options.sneakKey.setPressed(true);
@@ -183,7 +194,7 @@ public class FramignAuto {
                     if (client.player.getAbilities().flying) client.options.sneakKey.setPressed(true);
                     else client.options.sneakKey.setPressed(false);
 
-                    lerpRotationTo(HKConfig.yaw, HKConfig.pitch);
+                    rotate = true;
 
                     for (String s : HKConfig.actionPoints) {
                         if (s.startsWith(client.player.getBlockPos().toString())) {
@@ -208,12 +219,17 @@ public class FramignAuto {
                                     autoPestNextWarp = false;
                                     initiateAutoPest(client);
                                 } else {
-                                    client.player.networkHandler.sendChatCommand("warp garden");
+                                    if (!waitForWarp) {
+                                        waitForWarp = true;
+                                        client.player.networkHandler.sendChatCommand("warp garden");
+                                    }
                                 }
                                 break;
+                            } else {
+                                waitForWarp = false;
+                                keybindsTranslation.get(key).setPressed(true);
+                                client.options.attackKey.setPressed(true);
                             }
-                            keybindsTranslation.get(key).setPressed(true);
-                            client.options.attackKey.setPressed(true);
                         }
                     }
                 }
@@ -221,6 +237,8 @@ public class FramignAuto {
                 wasActive = true;
             }
             else if (wasActive) {
+                rotate = false;
+
                 client.options.forwardKey.setPressed(false);
                 client.options.leftKey.setPressed(false);
                 client.options.rightKey.setPressed(false);
@@ -236,7 +254,7 @@ public class FramignAuto {
                 stoppedBlock = client.player.getBlockPos();
                 client.options.pauseOnLostFocus = true;
 
-                client.inGameHud.getChatHud().addMessage(Text.literal("[HKTools] ").formatted(Formatting.LIGHT_PURPLE).append(Text.literal("farmer stopped working :(").formatted(Formatting.WHITE)));
+                Utils.HKPrint(Text.literal("farmer stopped :(").formatted(Formatting.WHITE));
             }
         });
 
@@ -245,6 +263,10 @@ public class FramignAuto {
             if (client.world == null || client.player == null) return;
             if (!DEBUG) {
                 if (!Utils.isInGarden()) return;
+            }
+
+            if (rotate) {
+                smoothRotateTo(HKConfig.yaw, HKConfig.pitch, 0.3f, 4f);
             }
 
             if (stoppedBlock != null) renderBlockMark(context.matrixStack(), stoppedBlock, 1f, 0f, 0.2f, 0.9f, false, "");
@@ -282,29 +304,39 @@ public class FramignAuto {
         mc.options.attackKey.setPressed(false);
     }
 
-    private static void lerpRotationTo(float yaw, float pitch) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    private static void smoothRotateTo(float targetYaw, float targetPitch, float maxAccel, float maxSpeed) {
+        MinecraftClient mc = MinecraftClient.getInstance();
 
-        float currentYaw = client.player.getYaw();
-        float currentPitch = client.player.getPitch();
+        float currentYaw   = mc.player.getYaw();
+        float currentPitch = mc.player.getPitch();
 
-        // 0.1f = 10% of delta per tick
-        float speed = 0.1f;
+        float yawDiff   = MathHelper.wrapDegrees(targetYaw - currentYaw);
+        float pitchDiff = targetPitch - currentPitch;
 
-        float newYaw = lerpAngle(currentYaw, yaw, speed);
-        float newPitch = lerpAngle(currentPitch, pitch, speed);
+        // accelerate toward target
+        yawVelocity   += Math.signum(yawDiff)   * maxAccel;
+        pitchVelocity += Math.signum(pitchDiff) * maxAccel;
 
-        client.player.setYaw(newYaw);
-        client.player.setPitch(newPitch);
+        // clamp speeds
+        yawVelocity   = MathHelper.clamp(yawVelocity,   -maxSpeed, maxSpeed);
+        pitchVelocity = MathHelper.clamp(pitchVelocity, -maxSpeed, maxSpeed);
 
-        if (Math.abs(yaw - newYaw) < 0.5f && Math.abs(pitch - newPitch) < 0.5f) {
-            client.player.setYaw(yaw);
-            client.player.setPitch(pitch);
-        }
-    }
+        // decelerate near target
+        if (Math.abs(yawDiff) < Math.abs(yawVelocity) * 5) yawVelocity *= 0.5f;
+        if (Math.abs(pitchDiff) < Math.abs(pitchVelocity) * 5) pitchVelocity *= 0.5f;
 
-    private static float lerpAngle(float current, float target, float speed) {
-        float delta = (((target - current + 540) % 360 + 360) % 360) - 180;
-        return current + delta * speed;
+        // prevent overshoot: if we'd pass the target this frame, just land on it
+        if (Math.abs(yawDiff) < Math.abs(yawVelocity))   yawVelocity   = yawDiff;
+        if (Math.abs(pitchDiff) < Math.abs(pitchVelocity)) pitchVelocity = pitchDiff;
+
+        // light friction so we settle nicely
+        yawVelocity   *= 0.9f;
+        pitchVelocity *= 0.9f;
+
+        float newYaw   = MathHelper.wrapDegrees(currentYaw + yawVelocity);
+        float newPitch = MathHelper.clamp(currentPitch + pitchVelocity, -90f, 90f);
+
+        mc.player.setYaw(newYaw);
+        mc.player.setPitch(newPitch);
     }
 }

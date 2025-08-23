@@ -18,6 +18,7 @@ import one.txrsp.hktools.render.RenderUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
@@ -33,6 +34,7 @@ public class PathFollower {
     private static float yawVelocity = 0;
     private static float pitchVelocity = 0;
     public static BlockPos goal;
+    private static final Random random = new Random();
 
     public static void init() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
@@ -158,6 +160,8 @@ public class PathFollower {
         KeyBinding back = mc.options.backKey;
         KeyBinding jump = mc.options.jumpKey;
         KeyBinding sneak = mc.options.sneakKey;
+        KeyBinding right = mc.options.rightKey;
+        KeyBinding left = mc.options.leftKey;
 
         if (Math.abs(MathHelper.wrapDegrees(mc.player.getYaw() - yaw)) < 15) {
             if (vel.length() > 0.4) {
@@ -180,8 +184,9 @@ public class PathFollower {
             Vec3d frontPos = mc.player.getPos().add(flatLook);
             BlockPos blockInFront = BlockPos.ofFloored(frontPos);
             BlockState frontState = world.getBlockState(blockInFront);
+            BlockState blockBelow = world.getBlockState(mc.player.getBlockPos().down());
 
-            if (frontState.getBlock() instanceof TrapdoorBlock && frontState.get(TrapdoorBlock.OPEN)) {
+            /*if (frontState.getBlock() instanceof TrapdoorBlock && frontState.get(TrapdoorBlock.OPEN)) {
                 jump.setPressed(true);
                 sneak.setPressed(false);
             } else {
@@ -195,6 +200,29 @@ public class PathFollower {
                     jump.setPressed(false);
                     sneak.setPressed(false);
                 }
+            }*/
+            if (dy > zone) {
+                jump.setPressed(true);
+                sneak.setPressed(false);
+            } else if (dy < -zone) {
+                sneak.setPressed(true);
+                jump.setPressed(false);
+            } else {
+                jump.setPressed(false);
+                sneak.setPressed(false);
+            }
+
+            if (blockBelow.getBlock() instanceof TrapdoorBlock && blockBelow.get(TrapdoorBlock.OPEN)) {
+                if (random.nextBoolean()) {
+                    right.setPressed(true);
+                    left.setPressed(false);
+                } else {
+                    right.setPressed(false);
+                    left.setPressed(true);
+                }
+            } else {
+                right.setPressed(false);
+                left.setPressed(false);
             }
         }
     }

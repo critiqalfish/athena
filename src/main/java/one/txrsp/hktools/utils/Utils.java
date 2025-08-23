@@ -1,8 +1,12 @@
 package one.txrsp.hktools.utils;
 
+import com.mojang.brigadier.context.CommandContext;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.scoreboard.*;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
@@ -81,6 +85,9 @@ public class Utils {
         return true;
     }
 
+    public static void HKPrint(Text text) {
+        MinecraftClient.getInstance().inGameHud.getChatHud().addMessage(Text.literal("[HKTools] ").formatted(Formatting.LIGHT_PURPLE).append(text));
+    }
 
     private static String stripFormatting(String input) {
         return input.replaceAll("\uD83C\uDF6B|\uD83D\uDCA3|\uD83D\uDC7D|\uD83D\uDD2E|\uD83D\uDC0D|\uD83D\uDC7E|\uD83C\uDF20|\uD83C\uDF6D|\u26BD|\uD83C\uDFC0|\uD83D\uDC79|\uD83C\uDF81|\uD83C\uDF89|\uD83C\uDF82|\uD83D\uDD2B", "");

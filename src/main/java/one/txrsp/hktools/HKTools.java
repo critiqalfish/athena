@@ -15,7 +15,7 @@ public class HKTools implements ClientModInitializer {
 	public static final String MOD_ID = "hktools";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 	public static final Configurator CONFIG = new Configurator(MOD_ID);
-	public static boolean DEBUG = true;
+	public static boolean DEBUG = false;
 
 	@Override
 	public void onInitializeClient() {
