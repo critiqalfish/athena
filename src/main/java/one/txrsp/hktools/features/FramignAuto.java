@@ -3,19 +3,25 @@ package one.txrsp.hktools.features;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.event.client.player.ClientPlayerBlockBreakEvents;
 import net.minecraft.block.Block;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.item.ItemStack;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.*;
 import one.txrsp.hktools.config.HKConfig;
+import one.txrsp.hktools.mixin.InGameHudAccessor;
 import one.txrsp.hktools.pathfinding.PathFollower;
+import one.txrsp.hktools.utils.Crops;
 import one.txrsp.hktools.utils.Utils;
 import org.lwjgl.glfw.GLFW;
 
+import java.text.Normalizer;
 import java.util.*;
 
 import static one.txrsp.hktools.HKTools.DEBUG;
@@ -44,6 +50,12 @@ public class FramignAuto {
     private static float yawVelocity = 0;
     private static float pitchVelocity = 0;
     private static boolean rotate = false;
+    private static final List<Long> brokenCropTimestamps = new ArrayList<>();
+    public static Crops.CROP currentCrop = null;
+    private static long startTimestamp;
+    private static float lastYaw = Float.NaN;
+    private static float lastPitch = Float.NaN;
+    private static boolean maybeMacroCheck = false;
 
     public static void init() {
         actionPointsList.add("empty");
@@ -64,7 +76,11 @@ public class FramignAuto {
                         "D", client.options.rightKey
                 );
             }
-            if (client.player == null || client.currentScreen != null) return;
+            if (client.player == null) return;
+            if (client.currentScreen != null) {
+                startTimestamp = System.currentTimeMillis();
+                return;
+            }
             if (actionPointsList.contains("empty")) {
                 actionPointsList.clear();
                 Collections.addAll(actionPointsList, HKConfig.actionPoints);
@@ -72,6 +88,9 @@ public class FramignAuto {
             if (!DEBUG) {
                 if (!Utils.isInGarden()) {stoppedBlock = null; return;}
             }
+
+            currentCrop = Crops.getCropForTool(client.player.getInventory().getSelectedStack().getName().getString());
+            brokenCropTimestamps.removeIf(t -> System.currentTimeMillis() - t > 1000);
 
             List<String> lines = Utils.getScoreboardLines();
             for (String line : lines) {
@@ -88,6 +107,31 @@ public class FramignAuto {
 
             Vec3d currentPos = client.player.getPos();
 
+            if (maybeMacroCheck) {
+                client.inGameHud.setTitle(Text.literal("!!!  WARNING  !!!").formatted(Formatting.BOLD).formatted(Formatting.RED));
+                client.inGameHud.setSubtitle(Text.literal("LOW BPS OR YAW/PITCH CHANGE DETECTED. POTENTIAL MACRO CHECK").formatted(Formatting.BOLD).formatted(Formatting.RED));
+                client.inGameHud.setTitleTicks(0, 400, 0);
+                client.player.playSoundToPlayer(SoundEvents.ENTITY_GENERIC_EXPLODE.value(),
+                        SoundCategory.MASTER,
+                        1.0f,
+                        1.0f);
+                client.player.playSoundToPlayer(SoundEvents.ENTITY_GENERIC_EXPLODE.value(),
+                        SoundCategory.MASTER,
+                        1.0f,
+                        0.5f);
+                client.player.playSoundToPlayer(SoundEvents.ENTITY_PLAYER_HURT,
+                        SoundCategory.MASTER,
+                        1.0f,
+                        1.0f);
+                client.player.playSoundToPlayer(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP,
+                        SoundCategory.MASTER,
+                        1.0f,
+                        1.5f);
+            }
+            else if (((InGameHudAccessor) MinecraftClient.getInstance().inGameHud).getCurrentTitle() != null && Objects.equals(((InGameHudAccessor) MinecraftClient.getInstance().inGameHud).getCurrentTitle().getString(), "!!!  WARNING  !!!")) {
+                client.inGameHud.clearTitle();
+            }
+
             if (keybind.wasPressed()) active = !active;
 
             if (active) {
@@ -96,6 +140,8 @@ public class FramignAuto {
                     client.options.pauseOnLostFocus = false;
                     stoppedBlock = null;
                     waitForTP = false;
+                    startTimestamp = System.currentTimeMillis();
+                    maybeMacroCheck = false;
                 }
 
                 if (lastPos != null && currentPos.distanceTo(lastPos) < 0.001) {
@@ -126,7 +172,12 @@ public class FramignAuto {
                         } else if (currentPlot == PestESP.pestPlots.getFirst()) {
                             waitForTP = false;
 
-                            client.options.useKey.setPressed(true);
+                            if (!PestESP.pests.isEmpty() && currentPos.squaredDistanceTo(PestESP.pests.getFirst().getCenter()) < 144) {
+                                client.options.useKey.setPressed(true);
+                            }
+                            else {
+                                client.options.useKey.setPressed(false);
+                            }
 
                             if (!PathFollower.following) {
                                 if (!PestESP.pests.isEmpty()) {
@@ -140,8 +191,7 @@ public class FramignAuto {
                                 } else {
                                     PathFollower.stop();
                                 }
-                            } else if (!PestESP.pests.isEmpty() && PathFollower.goal.getSquaredDistance(PestESP.pests.getFirst().getCenter()) > 256) {
-                                LOGGER.info("recalc");
+                            } else if (!PestESP.pests.isEmpty() && PathFollower.goal.getSquaredDistance(PestESP.pests.getFirst().getCenter()) > 144) {
                                 Box box = PestESP.pests.getFirst();
                                 BlockPos pestPos = BlockPos.ofFloored(
                                         (box.minX + box.maxX) / 2.0,
@@ -165,6 +215,7 @@ public class FramignAuto {
                         if (HKConfig.autoPestWarpWait) {
                             wasPestRemoving = false;
                             client.player.networkHandler.sendChatCommand("warp garden");
+                            startTimestamp = System.currentTimeMillis();
                         } else {
                             wasPestRemoving = true;
                             client.player.networkHandler.sendChatCommand("plottp " + originPlot);
@@ -191,10 +242,47 @@ public class FramignAuto {
                         client.options.forwardKey.setPressed(true);
                     }
                 } else if (!isPestRemoving) {
+                    // normal farming
+
                     if (client.player.getAbilities().flying) client.options.sneakKey.setPressed(true);
                     else client.options.sneakKey.setPressed(false);
 
-                    rotate = true;
+                    if (brokenCropTimestamps.size() < 1 && System.currentTimeMillis() - startTimestamp > 1000) {
+                        maybeMacroCheck = true;
+                        rotate = false;
+                    }
+
+                    if (maybeMacroCheck && brokenCropTimestamps.size() > 10) {
+                        maybeMacroCheck = false;
+                    }
+
+                    if (!Float.isNaN(lastYaw) && !Float.isNaN(lastPitch)) {
+                        float yaw = client.player.getYaw();
+                        float pitch = client.player.getPitch();
+
+                        float yawDiff = MathHelper.wrapDegrees(yaw - lastYaw);
+                        float pitchDiff = pitch - lastPitch;
+
+                        double mouseDx = client.mouse.getX();
+                        double mouseDy = client.mouse.getY();
+
+                        if (System.currentTimeMillis() - startTimestamp > 2000 && (Math.abs(yawDiff) > 5.0f || Math.abs(pitchDiff) > 5.0f)) {
+                            if (Math.abs(mouseDx) < 0.01 && Math.abs(mouseDy) < 0.01) {
+                                maybeMacroCheck = true;
+                                rotate = false;
+                                LOGGER.info("Unexpected rotation detected! ΔYaw=" + yaw + " ΔPitch=" + yaw);
+                            }
+                        }
+
+                        lastYaw = yaw;
+                        lastPitch = pitch;
+                    }
+                    else {
+                        lastYaw = client.player.getYaw();
+                        lastPitch = client.player.getPitch();
+                    }
+
+                    if (!maybeMacroCheck) rotate = true;
 
                     for (String s : HKConfig.actionPoints) {
                         if (s.startsWith(client.player.getBlockPos().toString())) {
@@ -253,6 +341,7 @@ public class FramignAuto {
                 wasActive = false;
                 stoppedBlock = client.player.getBlockPos();
                 client.options.pauseOnLostFocus = true;
+                maybeMacroCheck = false;
 
                 Utils.HKPrint(Text.literal("farmer stopped :(").formatted(Formatting.WHITE));
             }
@@ -266,7 +355,7 @@ public class FramignAuto {
             }
 
             if (rotate) {
-                smoothRotateTo(HKConfig.yaw, HKConfig.pitch, 0.3f, 4f);
+                smoothRotateTo(HKConfig.yaw, HKConfig.pitch, 0.2f, 3f);
             }
 
             if (stoppedBlock != null) renderBlockMark(context.matrixStack(), stoppedBlock, 1f, 0f, 0.2f, 0.9f, false, "");
@@ -280,6 +369,12 @@ public class FramignAuto {
                     text = Objects.equals(text, ".") ? "warp" : text;
                     renderBlockMark(context.matrixStack(), pos, 0.2f, 0.3f, 1f, 0.5f, false, text);
                 }
+            }
+        });
+
+        ClientPlayerBlockBreakEvents.AFTER.register((world, player, pos, state) -> {
+            if (player == MinecraftClient.getInstance().player) {
+                onBlockBroken(state.getBlock());
             }
         });
     }
@@ -304,6 +399,13 @@ public class FramignAuto {
         mc.options.attackKey.setPressed(false);
     }
 
+    private static void onBlockBroken(Block block) {
+        long now = System.currentTimeMillis();
+        if (Crops.getCropForBlock(block) == currentCrop) {
+            brokenCropTimestamps.add(now);
+        }
+    }
+
     private static void smoothRotateTo(float targetYaw, float targetPitch, float maxAccel, float maxSpeed) {
         MinecraftClient mc = MinecraftClient.getInstance();
 
@@ -322,8 +424,8 @@ public class FramignAuto {
         pitchVelocity = MathHelper.clamp(pitchVelocity, -maxSpeed, maxSpeed);
 
         // decelerate near target
-        if (Math.abs(yawDiff) < Math.abs(yawVelocity) * 5) yawVelocity *= 0.5f;
-        if (Math.abs(pitchDiff) < Math.abs(pitchVelocity) * 5) pitchVelocity *= 0.5f;
+        if (Math.abs(yawDiff) < Math.abs(yawVelocity) * 10) yawVelocity *= 0.5f;
+        if (Math.abs(pitchDiff) < Math.abs(pitchVelocity) * 10) pitchVelocity *= 0.5f;
 
         // prevent overshoot: if we'd pass the target this frame, just land on it
         if (Math.abs(yawDiff) < Math.abs(yawVelocity))   yawVelocity   = yawDiff;

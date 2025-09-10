@@ -154,7 +154,7 @@ public class PathFollower {
         Vec3d vel = mc.player.getVelocity();
         double dot = vel.normalize().dotProduct(dir.normalize()); // 1 = moving toward node
 
-        smoothRotateTo(yaw, pitch, 0.5f, 5f);
+        smoothRotateTo(yaw, pitch, 0.4f, 5f);
 
         KeyBinding forward = mc.options.forwardKey;
         KeyBinding back = mc.options.backKey;

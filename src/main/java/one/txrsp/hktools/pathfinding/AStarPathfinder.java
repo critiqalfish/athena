@@ -111,7 +111,12 @@ public class AStarPathfinder {
         double base = current.pos.getSquaredDistance(neighbor);
 
         int dy = Math.abs(neighbor.getY() - current.pos.getY());
-        base += dy * 2.0;
+        if (current.g < 20) {
+            base += dy * 0.3;
+        }
+        else {
+            base += dy * 2.0;
+        }
 
         if (current.parent != null) {
             int dx1 = current.pos.getX() - current.parent.pos.getX();
@@ -144,7 +149,7 @@ public class AStarPathfinder {
 
         double dist = dx + dz;
         if (dist < 10) {
-            return dx + dz + dy * 2.0;
+            return dx + dz + dy;
         } else {
             return dx + dz + dy * 0.5;
         }
