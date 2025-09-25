@@ -101,7 +101,13 @@ public class FramignAuto {
                         line = line.substring(0, line.lastIndexOf("x"));
                     }
                     if (line.contains("⏣")) line = line.replace("⏣", "");
-                    if (!line.strip().equals("n")) currentPlot = Integer.parseInt(line.strip());
+                    try {
+                        if (!line.strip().equals("n")) currentPlot = Integer.parseInt(line.strip());
+                    }
+                    catch (NumberFormatException e) {
+                        // fuck this shit
+                    }
+
                 }
             }
 
@@ -243,6 +249,17 @@ public class FramignAuto {
                     }
                 } else if (!isPestRemoving) {
                     // normal farming
+
+                    if (brokenCropTimestamps.size() > 10 && !maybeMacroCheck && HKConfig.mcowRemind) {
+                        Utils.getTablistLines().forEach(entry -> {
+                            if (entry.startsWith("[Lvl") && !entry.contains("Mooshroom Cow")) {
+                                client.inGameHud.setTitle(Text.literal("!!!  WARNING  !!!").formatted(Formatting.BOLD).formatted(Formatting.YELLOW));
+                                client.inGameHud.setSubtitle(Text.literal("No Mooshroom Cow Pet selected.").formatted(Formatting.BOLD).formatted(Formatting.YELLOW));
+                                client.inGameHud.setTitleTicks(0, 10, 0);
+                            }
+                        });
+                        LOGGER.info(Utils.getTablistLines().toString());
+                    }
 
                     if (client.player.getAbilities().flying) client.options.sneakKey.setPressed(true);
                     else client.options.sneakKey.setPressed(false);

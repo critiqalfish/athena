@@ -27,6 +27,9 @@ public class HKConfig {
     @ConfigOption.Range(min=1, max=8)
     public static int autoPestThreshold = 4;
 
+    @ConfigEntry(id="mcowRemind", translation="mooshroom cow reminder")
+    public static boolean mcowRemind = true;
+
     @ConfigEntry(id="showActionPoints", translation="show action points")
     public static boolean showActionPoints = false;
 
