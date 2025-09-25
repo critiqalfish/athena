@@ -21,6 +21,7 @@ import one.txrsp.hktools.utils.Crops;
 import one.txrsp.hktools.utils.Utils;
 import org.lwjgl.glfw.GLFW;
 
+import java.awt.event.MouseMotionListener;
 import java.text.Normalizer;
 import java.util.*;
 
@@ -55,6 +56,8 @@ public class FramignAuto {
     private static long startTimestamp;
     private static float lastYaw = Float.NaN;
     private static float lastPitch = Float.NaN;
+    private static double lastMouseX = Float.NaN;
+    private static double lastMouseY = Float.NaN;
     private static boolean maybeMacroCheck = false;
 
     public static void init() {
@@ -258,20 +261,19 @@ public class FramignAuto {
                                 client.inGameHud.setTitleTicks(0, 10, 0);
                             }
                         });
-                        LOGGER.info(Utils.getTablistLines().toString());
                     }
 
                     if (client.player.getAbilities().flying) client.options.sneakKey.setPressed(true);
                     else client.options.sneakKey.setPressed(false);
 
-                    if (brokenCropTimestamps.size() < 1 && System.currentTimeMillis() - startTimestamp > 1000) {
+                    if (brokenCropTimestamps.size() < 1 && System.currentTimeMillis() - startTimestamp > 2000) {
                         maybeMacroCheck = true;
                         rotate = false;
                     }
 
-                    if (maybeMacroCheck && brokenCropTimestamps.size() > 10) {
-                        maybeMacroCheck = false;
-                    }
+//                    if (maybeMacroCheck && brokenCropTimestamps.size() > 10) {
+//                        maybeMacroCheck = false;
+//                    }
 
                     if (!Float.isNaN(lastYaw) && !Float.isNaN(lastPitch)) {
                         float yaw = client.player.getYaw();
@@ -280,23 +282,30 @@ public class FramignAuto {
                         float yawDiff = MathHelper.wrapDegrees(yaw - lastYaw);
                         float pitchDiff = pitch - lastPitch;
 
-                        double mouseDx = client.mouse.getX();
-                        double mouseDy = client.mouse.getY();
+                        double mouseX = client.mouse.getX();
+                        double mouseY = client.mouse.getY();
+
+                        double mouseDx = mouseX - lastMouseX;
+                        double mouseDy = mouseY - lastMouseY;
 
                         if (System.currentTimeMillis() - startTimestamp > 2000 && (Math.abs(yawDiff) > 5.0f || Math.abs(pitchDiff) > 5.0f)) {
-                            if (Math.abs(mouseDx) < 0.01 && Math.abs(mouseDy) < 0.01) {
+                            if (Math.abs(mouseDx) < 0.1 && Math.abs(mouseDy) < 0.1) {
                                 maybeMacroCheck = true;
                                 rotate = false;
-                                LOGGER.info("Unexpected rotation detected! ΔYaw=" + yaw + " ΔPitch=" + yaw);
+                                LOGGER.info("Unexpected rotation detected! ΔYaw=" + yaw + " ΔPitch=" + pitch);
                             }
                         }
 
                         lastYaw = yaw;
                         lastPitch = pitch;
+                        lastMouseX = mouseX;
+                        lastMouseY = mouseY;
                     }
                     else {
                         lastYaw = client.player.getYaw();
                         lastPitch = client.player.getPitch();
+                        lastMouseX = client.mouse.getX();
+                        lastMouseY = client.mouse.getY();
                     }
 
                     if (!maybeMacroCheck) rotate = true;
@@ -317,7 +326,7 @@ public class FramignAuto {
                         }
                     }
 
-                    if (Math.abs(MathHelper.wrapDegrees(client.player.getYaw() - HKConfig.yaw)) < 15) {
+                    if (Math.abs(MathHelper.wrapDegrees(client.player.getYaw() - HKConfig.yaw)) < 5) {
                         for (String key : heldKeys) {
                             if (Objects.equals(key, ".")) {
                                 if (autoPestNextWarp) {
@@ -372,7 +381,7 @@ public class FramignAuto {
             }
 
             if (rotate) {
-                smoothRotateTo(HKConfig.yaw, HKConfig.pitch, 0.2f, 3f);
+                smoothRotateTo(HKConfig.yaw, HKConfig.pitch);
             }
 
             if (stoppedBlock != null) renderBlockMark(context.matrixStack(), stoppedBlock, 1f, 0f, 0.2f, 0.9f, false, "");
@@ -423,7 +432,7 @@ public class FramignAuto {
         }
     }
 
-    private static void smoothRotateTo(float targetYaw, float targetPitch, float maxAccel, float maxSpeed) {
+    private static void smoothRotateTo(float targetYaw, float targetPitch) {
         MinecraftClient mc = MinecraftClient.getInstance();
 
         float currentYaw   = mc.player.getYaw();
@@ -432,30 +441,48 @@ public class FramignAuto {
         float yawDiff   = MathHelper.wrapDegrees(targetYaw - currentYaw);
         float pitchDiff = targetPitch - currentPitch;
 
-        // accelerate toward target
-        yawVelocity   += Math.signum(yawDiff)   * maxAccel;
-        pitchVelocity += Math.signum(pitchDiff) * maxAccel;
+        // Distance to target
+        double dist = Math.hypot(yawDiff, pitchDiff);
+        if (dist < 0.1) {
+            mc.player.setYaw(targetYaw);
+            mc.player.setPitch(targetPitch);
+            return;
+        }
 
-        // clamp speeds
-        yawVelocity   = MathHelper.clamp(yawVelocity,   -maxSpeed, maxSpeed);
-        pitchVelocity = MathHelper.clamp(pitchVelocity, -maxSpeed, maxSpeed);
+        // Base "gravity" toward target (like G_0 in wind mouse)
+        float g = 0.40f;
 
-        // decelerate near target
-        if (Math.abs(yawDiff) < Math.abs(yawVelocity) * 10) yawVelocity *= 0.5f;
-        if (Math.abs(pitchDiff) < Math.abs(pitchVelocity) * 10) pitchVelocity *= 0.5f;
+        // Random wind influence (wobble) - scales down near target
+        float wMag = (float) Math.min(1.5, dist);
+        float wYaw   = (float) ((Math.random() * 2 - 1) * wMag * 0.2);
+        float wPitch = (float) ((Math.random() * 2 - 1) * wMag * 0.2);
 
-        // prevent overshoot: if we'd pass the target this frame, just land on it
-        if (Math.abs(yawDiff) < Math.abs(yawVelocity))   yawVelocity   = yawDiff;
-        if (Math.abs(pitchDiff) < Math.abs(pitchVelocity)) pitchVelocity = pitchDiff;
+        // Accelerate toward target with wobble
+        float windScale = (float)Math.min(1.0, dist / 5.0);
+        yawVelocity   += (float) (wYaw   * windScale + g * (yawDiff / dist));
+        pitchVelocity += (float) (wPitch * windScale + g * (pitchDiff / dist));
 
-        // light friction so we settle nicely
-        yawVelocity   *= 0.9f;
-        pitchVelocity *= 0.9f;
+        // Adaptive speed: slower when close
+        float adaptiveSpeed = (float) Math.max(0.5, 2.0 * (dist / 40.0));
 
+        // Clip velocity if too fast
+        float vMag = (float) Math.hypot(yawVelocity, pitchVelocity);
+        if (vMag > adaptiveSpeed) {
+            float vClip = adaptiveSpeed / 2 + (float) Math.random() * adaptiveSpeed / 2;
+            yawVelocity   = yawVelocity / vMag * vClip;
+            pitchVelocity = pitchVelocity / vMag * vClip;
+        }
+
+        // Apply velocity
         float newYaw   = MathHelper.wrapDegrees(currentYaw + yawVelocity);
         float newPitch = MathHelper.clamp(currentPitch + pitchVelocity, -90f, 90f);
 
         mc.player.setYaw(newYaw);
         mc.player.setPitch(newPitch);
+
+        // Light damping to avoid infinite drift
+        float damping = dist < 5 ? 0.6f : 0.9f;
+        yawVelocity   *= damping;
+        pitchVelocity *= damping;
     }
 }
