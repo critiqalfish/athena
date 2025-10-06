@@ -2,12 +2,14 @@ package one.txrsp.hktools.features;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import one.txrsp.hktools.config.HKConfig;
@@ -18,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static one.txrsp.hktools.HKTools.DEBUG;
+import static one.txrsp.hktools.HKTools.LOGGER;
 
 public class PestESP {
     private static final Box gardenBarnBB = new Box(new Vec3d(-46, 65, -46), new Vec3d(46, 90, 46));
@@ -37,17 +40,13 @@ public class PestESP {
 
             List<String> tabLines = Utils.getTablistLines();
             for (String line : tabLines) {
+                if (line.contains("Alive:")) {
+                    totalPests = Integer.parseInt(line.split(":")[1].strip());
+                }
                 if (line.contains("Plots:")) {
                     for (String s : line.replace("Plots: ", "").split(", ")) {
                         pestPlots.add(Integer.parseInt(s));
                     }
-                }
-            }
-
-            List<String> sbLines = Utils.getScoreboardLines();
-            for (String line : sbLines) {
-                if (line.contains("ൠ")) {
-                    totalPests = Integer.parseInt(line.substring(line.lastIndexOf("ൠ") + 3));
                 }
             }
 

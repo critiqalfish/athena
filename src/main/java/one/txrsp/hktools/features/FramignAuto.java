@@ -97,20 +97,27 @@ public class FramignAuto {
 
             List<String> lines = Utils.getScoreboardLines();
             for (String line : lines) {
-                if (line.contains("Plot - ")) {
-                    line = line.replace("Plot - ", "");
-                    if (line.contains("ൠ")) {
-                        line = line.replace(" ൠ ", "");
-                        line = line.substring(0, line.lastIndexOf("x"));
+                try {
+                    if (line.contains("Plot - ")) {
+                        line = line.replace("Plot - ", "");
+                        if (line.contains("ൠ")) {
+                            line = line.replace(" ൠ ", "");
+                            if (line.lastIndexOf("x") != -1) {
+                                line = line.substring(0, line.lastIndexOf("x"));
+                            }
+                            else {
+                                line = line.replace(" ൠ", "");
+                            }
+                        }
+                        if (line.contains("⏣")) line = line.replace("⏣", "");
+                        try {
+                            if (!line.strip().equals("n")) currentPlot = Integer.parseInt(line.strip());
+                        } catch (NumberFormatException e) {
+                            // fuck this shit
+                        }
                     }
-                    if (line.contains("⏣")) line = line.replace("⏣", "");
-                    try {
-                        if (!line.strip().equals("n")) currentPlot = Integer.parseInt(line.strip());
-                    }
-                    catch (NumberFormatException e) {
-                        // fuck this shit
-                    }
-
+                } catch (Exception e) {
+                    LOGGER.info("Failed to parse line: " + line, e);
                 }
             }
 

@@ -5,6 +5,8 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.FenceBlock;
+import net.minecraft.block.FenceGateBlock;
 import net.minecraft.block.TrapdoorBlock;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
@@ -31,6 +33,7 @@ public class PathFollower {
     public static boolean following = false;
     public static boolean found = false;
     private static int flightToggleTimer = 4;
+    private static int lastJump = 0;
     private static float yawVelocity = 0;
     private static float pitchVelocity = 0;
     public static BlockPos goal;
@@ -65,18 +68,24 @@ public class PathFollower {
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             if (mc.player == null) return;
 
-            if (following && !mc.player.getAbilities().flying) {
-                switch (flightToggleTimer) {
-                    case 4 -> mc.options.jumpKey.setPressed(true);
-                    case 3 -> mc.options.jumpKey.setPressed(false);
-                    case 2 -> {}
-                    case 1 -> mc.options.jumpKey.setPressed(true);
-                    case 0 -> {
-                        mc.options.jumpKey.setPressed(false);
-                        flightToggleTimer = 5;
+            if (following) {
+                lastJump++;
+                if (!mc.player.getAbilities().flying) {
+                    switch (flightToggleTimer) {
+                        case 4 -> mc.options.jumpKey.setPressed(true);
+                        case 3 -> mc.options.jumpKey.setPressed(false);
+                        case 2 -> {
+                        }
+                        case 1 -> mc.options.jumpKey.setPressed(true);
+                        case 0 -> {
+                            mc.options.jumpKey.setPressed(false);
+                            flightToggleTimer = 5;
+                        }
                     }
+                    flightToggleTimer--;
+                } else {
+                    flightToggleTimer = 5;
                 }
-                flightToggleTimer--;
             }
         });
 
@@ -106,6 +115,7 @@ public class PathFollower {
             found = false;
             currentIndex = 0;
             flightToggleTimer = 4;
+            lastJump = 0;
             return true;
         }
         else {
@@ -148,69 +158,90 @@ public class PathFollower {
 
         float yaw = (float) MathHelper.wrapDegrees(Math.toDegrees(Math.atan2(ez, ex)) - 90.0);
         float pitch = (float) -Math.toDegrees(Math.atan2(ey, Math.sqrt(ex * ex + ez * ez)));
-        if (currentIndex == path.size() - 1) pitch = 80;
+        if (currentIndex == path.size() - 1 && playerPos.squaredDistanceTo(targetCenter) < 160) pitch = 80;
         else pitch = MathHelper.clamp(pitch, -20, 20);
 
         Vec3d vel = mc.player.getVelocity();
         double dot = vel.normalize().dotProduct(dir.normalize()); // 1 = moving toward node
 
-        smoothRotateTo(yaw, pitch, 0.4f, 5f);
+        smoothRotateTo(yaw, pitch);
 
         KeyBinding forward = mc.options.forwardKey;
         KeyBinding back = mc.options.backKey;
         KeyBinding jump = mc.options.jumpKey;
-        KeyBinding sneak = mc.options.sneakKey;
         KeyBinding right = mc.options.rightKey;
         KeyBinding left = mc.options.leftKey;
-
-        if (Math.abs(MathHelper.wrapDegrees(mc.player.getYaw() - yaw)) < 15) {
-            if (vel.length() > 0.4) {
-                forward.setPressed(false);
-                back.setPressed(true);
-            } else {
-                forward.setPressed(true);
-                back.setPressed(false);
-            }
-        } else {
-            forward.setPressed(false);
-            back.setPressed(false);
-        }
+        KeyBinding sneak = mc.options.sneakKey;
+        KeyBinding sprint = mc.options.sprintKey;
 
         if (mc.player.getAbilities().flying) {
-            double zone = 0.5;
-
             Vec3d lookVec = mc.player.getRotationVec(1.0f).normalize();
             Vec3d flatLook = new Vec3d(lookVec.x, 0, lookVec.z).normalize();
             Vec3d frontPos = mc.player.getPos().add(flatLook);
-            BlockPos blockInFront = BlockPos.ofFloored(frontPos);
-            BlockState frontState = world.getBlockState(blockInFront);
+            BlockPos blockInFrontOfHead = BlockPos.ofFloored(frontPos).up(2);
+            BlockPos blockInFrontOfFeet = BlockPos.ofFloored(frontPos);
+            BlockState frontHeadState = world.getBlockState(blockInFrontOfHead);
+            BlockState frontFeetState = mc.world.getBlockState(blockInFrontOfFeet);
             BlockState blockBelow = world.getBlockState(mc.player.getBlockPos().down());
 
-            /*if (frontState.getBlock() instanceof TrapdoorBlock && frontState.get(TrapdoorBlock.OPEN)) {
-                jump.setPressed(true);
-                sneak.setPressed(false);
+            BlockPos prevNode = currentIndex > 0 ? path.get(currentIndex - 1) : targetNode;
+            Vec3d segmentStart = Vec3d.ofCenter(prevNode);
+            Vec3d segmentEnd   = Vec3d.ofCenter(targetNode);
+            Vec3d segmentDir   = segmentEnd.subtract(segmentStart);
+
+            Vec3d playerPosVec = mc.player.getPos();
+            Vec3d projectedPoint;
+
+            Vec3d segmentHoriz = new Vec3d(segmentDir.x, 0.0, segmentDir.z);
+            boolean isVerticalSegment = segmentHoriz.length() < 18.0;
+
+            if (isVerticalSegment) {
+                projectedPoint = new Vec3d(segmentStart.x, playerPosVec.y, segmentStart.z);
             } else {
-                if (dy > zone) {
-                    jump.setPressed(true);
-                    sneak.setPressed(false);
-                } else if (dy < -zone) {
-                    sneak.setPressed(true);
-                    jump.setPressed(false);
+                double segLenSq = segmentDir.lengthSquared();
+                if (segLenSq < 1e-6) {
+                    projectedPoint = segmentStart;
                 } else {
-                    jump.setPressed(false);
-                    sneak.setPressed(false);
+                    double t = playerPosVec.subtract(segmentStart).dotProduct(segmentDir) / segLenSq;
+                    t = MathHelper.clamp((float) t, 0f, 1f);
+                    projectedPoint = segmentStart.add(segmentDir.multiply(t));
                 }
-            }*/
-            if (dy > zone) {
-                jump.setPressed(true);
-                sneak.setPressed(false);
-            } else if (dy < -zone) {
-                sneak.setPressed(true);
-                jump.setPressed(false);
-            } else {
-                jump.setPressed(false);
-                sneak.setPressed(false);
             }
+
+            Vec3d offsetVec = playerPosVec.subtract(projectedPoint);
+
+            Vec3d rightVec;
+            if (segmentHoriz.lengthSquared() < 1e-6) {
+                // segment basically vertical — derive right from player yaw so we still have a stable horizontal axis
+                double yawRad = Math.toRadians(mc.player.getYaw());
+                // right vector based on yaw (90° clockwise)
+                rightVec = new Vec3d(Math.cos(yawRad + Math.PI/2.0), 0, Math.sin(yawRad + Math.PI/2.0));
+            } else {
+                // up.cross(segmentHoriz) gives a right-hand vector pointing to player's right
+                rightVec = new Vec3d(0, 1, 0).crossProduct(segmentHoriz).normalize();
+            }
+
+            if (Math.abs(MathHelper.wrapDegrees(mc.player.getYaw() - yaw)) < 15) {
+                forward.setPressed(true);
+                back.setPressed(false);
+                if (segmentDir.length() > 20 && segmentHoriz.length() > 30) {
+                    if (horizontalDist > 12) {
+                        sprint.setPressed(true);
+                    } else if (horizontalDist < 12 && vel.length() > 0.45) {
+                            forward.setPressed(false);
+                            back.setPressed(true);
+                    }
+                } else {
+                    sprint.setPressed(false);
+                }
+            } else {
+                forward.setPressed(false);
+                back.setPressed(false);
+                sprint.setPressed(false);
+            }
+
+            double sideOffset = offsetVec.dotProduct(rightVec);
+            double sideThreshold = 0.5;
 
             if (blockBelow.getBlock() instanceof TrapdoorBlock && blockBelow.get(TrapdoorBlock.OPEN)) {
                 if (random.nextBoolean()) {
@@ -220,9 +251,59 @@ public class PathFollower {
                     right.setPressed(false);
                     left.setPressed(true);
                 }
-            } else {
+            } else if (sideOffset < sideThreshold && sideOffset > -sideThreshold) {
                 right.setPressed(false);
                 left.setPressed(false);
+            }
+
+            if (currentIndex != 0) {
+                if (Math.abs(sideOffset) < 1.5) {
+                    if (sideOffset > sideThreshold) {
+                        left.setPressed(false);
+                        right.setPressed(true);
+                    } else if (sideOffset < -sideThreshold) {
+                        left.setPressed(true);
+                        right.setPressed(false);
+                    } else {
+                        left.setPressed(false);
+                        right.setPressed(false);
+                    }
+                } else {
+                    left.setPressed(false);
+                    right.setPressed(false);
+                }
+            }
+
+            double verticalOffset = offsetVec.y;
+            if (isVerticalSegment) {
+                verticalOffset = -dy;
+            }
+            double verticalTolerance = 0.3;
+
+            if (verticalOffset > verticalTolerance) {
+                jump.setPressed(false);
+                sneak.setPressed(true);
+            } else if (verticalOffset < -verticalTolerance) {
+                if (lastJump > 6) {
+                    jump.setPressed(true);
+                    lastJump = 0;
+                }
+                sneak.setPressed(false);
+            } else {
+                jump.setPressed(false);
+                sneak.setPressed(false);
+            }
+
+            if (!AStarPathfinder.isPassable(world, blockInFrontOfHead) &&
+                    AStarPathfinder.isPassable(world, blockInFrontOfHead.down()) &&
+                    AStarPathfinder.isPassable(world, blockInFrontOfHead.down(2))) {
+                sneak.setPressed(true);
+                jump.setPressed(false);
+            }
+
+            if (blockBelow.exceedsCube() || !AStarPathfinder.isPassable(world, blockInFrontOfFeet)) {
+                jump.setPressed(true);
+                sneak.setPressed(false);
             }
         }
     }
@@ -240,9 +321,12 @@ public class PathFollower {
         mc.options.backKey.setPressed(false);
         mc.options.jumpKey.setPressed(false);
         mc.options.sneakKey.setPressed(false);
+        mc.options.leftKey.setPressed(false);
+        mc.options.rightKey.setPressed(false);
+        mc.options.sprintKey.setPressed(false);
     }
 
-    private static void smoothRotateTo(float targetYaw, float targetPitch, float maxAccel, float maxSpeed) {
+    private static void smoothRotateTo(float targetYaw, float targetPitch) {
         MinecraftClient mc = MinecraftClient.getInstance();
 
         float currentYaw   = mc.player.getYaw();
@@ -251,30 +335,48 @@ public class PathFollower {
         float yawDiff   = MathHelper.wrapDegrees(targetYaw - currentYaw);
         float pitchDiff = targetPitch - currentPitch;
 
-        // accelerate toward target
-        yawVelocity   += Math.signum(yawDiff)   * maxAccel;
-        pitchVelocity += Math.signum(pitchDiff) * maxAccel;
+        // Distance to target
+        double dist = Math.hypot(yawDiff, pitchDiff);
+        if (dist < 0.1) {
+            mc.player.setYaw(targetYaw);
+            mc.player.setPitch(targetPitch);
+            return;
+        }
 
-        // clamp speeds
-        yawVelocity   = MathHelper.clamp(yawVelocity,   -maxSpeed, maxSpeed);
-        pitchVelocity = MathHelper.clamp(pitchVelocity, -maxSpeed, maxSpeed);
+        // Base "gravity" toward target (like G_0 in wind mouse)
+        float g = 0.40f;
 
-        // decelerate near target
-        if (Math.abs(yawDiff) < Math.abs(yawVelocity)) yawVelocity *= 0.5f;
-        if (Math.abs(pitchDiff) < Math.abs(pitchVelocity)) pitchVelocity *= 0.5f;
+        // Random wind influence (wobble) - scales down near target
+        float wMag = (float) Math.min(1.5, dist);
+        float wYaw   = (float) ((Math.random() * 2 - 1) * wMag * 0.2);
+        float wPitch = (float) ((Math.random() * 2 - 1) * wMag * 0.2);
 
-        // prevent overshoot: if we'd pass the target this frame, just land on it
-        if (Math.abs(yawDiff) < Math.abs(yawVelocity))   yawVelocity   = yawDiff;
-        if (Math.abs(pitchDiff) < Math.abs(pitchVelocity)) pitchVelocity = pitchDiff;
+        // Accelerate toward target with wobble
+        float windScale = (float)Math.min(1.0, dist / 5.0);
+        yawVelocity   += (float) (wYaw   * windScale + g * (yawDiff / dist));
+        pitchVelocity += (float) (wPitch * windScale + g * (pitchDiff / dist));
 
-        // light friction so we settle nicely
-        yawVelocity   *= 0.9f;
-        pitchVelocity *= 0.9f;
+        // Adaptive speed: slower when close
+        float adaptiveSpeed = (float) Math.max(0.5, 2.0 * (dist / 40.0));
 
+        // Clip velocity if too fast
+        float vMag = (float) Math.hypot(yawVelocity, pitchVelocity);
+        if (vMag > adaptiveSpeed) {
+            float vClip = adaptiveSpeed / 2 + (float) Math.random() * adaptiveSpeed / 2;
+            yawVelocity   = yawVelocity / vMag * vClip;
+            pitchVelocity = pitchVelocity / vMag * vClip;
+        }
+
+        // Apply velocity
         float newYaw   = MathHelper.wrapDegrees(currentYaw + yawVelocity);
         float newPitch = MathHelper.clamp(currentPitch + pitchVelocity, -90f, 90f);
 
         mc.player.setYaw(newYaw);
         mc.player.setPitch(newPitch);
+
+        // Light damping to avoid infinite drift
+        float damping = dist < 5 ? 0.6f : 0.9f;
+        yawVelocity   *= damping;
+        pitchVelocity *= damping;
     }
 }

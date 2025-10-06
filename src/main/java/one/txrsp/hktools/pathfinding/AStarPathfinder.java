@@ -112,7 +112,7 @@ public class AStarPathfinder {
 
         int dy = Math.abs(neighbor.getY() - current.pos.getY());
         if (current.g < 20) {
-            base += dy * 0.3;
+            base += dy * 0.4;
         }
         else {
             base += dy * 2.0;
@@ -186,20 +186,44 @@ public class AStarPathfinder {
 
 
     private static boolean canTravelDirectly(BlockPos from, BlockPos to, World world) {
-        Vec3d start = new Vec3d(from.getX() + 0.5, from.getY() + 0.5, from.getZ() + 0.5);
-        Vec3d end = new Vec3d(to.getX() + 0.5, to.getY() + 0.5, to.getZ() + 0.5);
-        Vec3d direction = end.subtract(start);
-        double length = direction.length();
-        direction = direction.normalize();
+        Vec3d start = new Vec3d(from.getX() + 0.5, from.getY() + 0.1, from.getZ() + 0.5);
+        Vec3d end   = new Vec3d(to.getX() + 0.5, to.getY() + 0.1, to.getZ() + 0.5);
+        Vec3d dir   = end.subtract(start);
+        double len  = dir.length();
+        dir = dir.normalize();
 
         double step = 0.25;
-        int steps = (int)(length / step);
+        int steps = (int)(len / step);
+
+        BlockPos lastPos = null;
 
         for (int i = 0; i <= steps; i++) {
-            Vec3d point = start.add(direction.multiply(i * step));
+            Vec3d point = start.add(dir.multiply(i * step));
             BlockPos checkPos = BlockPos.ofFloored(point);
 
-            if (!isPassable(world, checkPos) || !isPassable(world, checkPos.up())) return false;
+            if (!isPassable(world, checkPos)) return false;
+            if (!isPassable(world, checkPos.up())) return false;
+            if (!isPassable(world, checkPos.up(2))) return false;
+
+            // Corner prevention: don’t clip through diagonals
+            if (lastPos != null) {
+                int dx = checkPos.getX() - lastPos.getX();
+                int dz = checkPos.getZ() - lastPos.getZ();
+
+                // If we move diagonally (both X and Z changed)
+                if (dx != 0 && dz != 0) {
+                    BlockPos adjX = lastPos.add(dx, 0, 0);
+                    BlockPos adjZ = lastPos.add(0, 0, dz);
+
+                    // Both axis-aligned adjacents must be clear
+                    if (!isPassable(world, adjX) || !isPassable(world, adjX.up()) || !isPassable(world, adjX.up(2)))
+                        return false;
+                    if (!isPassable(world, adjZ) || !isPassable(world, adjZ.up()) || !isPassable(world, adjZ.up(2)))
+                        return false;
+                }
+            }
+
+            lastPos = checkPos;
         }
 
         return true;
@@ -211,24 +235,31 @@ public class AStarPathfinder {
         List<BlockPos> result = new ArrayList<>();
         result.add(path.get(0));
 
-        BlockPos prev = path.get(0);
-        BlockPos curr = path.get(1);
-        BlockPos lastDir = curr.subtract(prev);
+        BlockPos anchor = path.get(0);
 
-        for (int i = 2; i < path.size(); i++) {
-            BlockPos next = path.get(i);
-            BlockPos newDir = next.subtract(curr);
+        // try to skip intermediate nodes when the direct line is passable
+        for (int i = 1; i < path.size(); i++) {
+            BlockPos candidate = path.get(i);
 
-            if (!newDir.equals(lastDir)) {
-                result.add(curr);
-                lastDir = newDir;
+            // If we can travel directly from anchor to candidate with clearance, skip intermediates
+            if (canTravelDirectly(anchor, candidate, world)) {
+                continue; // keep extending the line
+            } else {
+                // last good node is one before current
+                BlockPos lastValid = path.get(i - 1);
+                if (!result.get(result.size() - 1).equals(lastValid)) {
+                    result.add(lastValid);
+                }
+                anchor = lastValid;
             }
-
-            prev = curr;
-            curr = next;
         }
 
-        result.add(path.get(path.size() - 1));
+        // always add final destination
+        BlockPos last = path.get(path.size() - 1);
+        if (!result.get(result.size() - 1).equals(last)) {
+            result.add(last);
+        }
+
         return result;
     }
 }
