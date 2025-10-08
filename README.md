@@ -1,2 +1,2 @@
 # Athena (HKTools)
-Hypixel Skyblock QOL mod
+Hypixel Skyblock QOL mod (formerly HKTools)
