@@ -1,26 +1,26 @@
 {
 	"schemaVersion": 1,
-	"id": "hktools",
+	"id": "athena",
 	"version": "${version}",
-	"name": "HKTools",
-	"description": "i love hello kitty",
+	"name": "Athena (HKTools)",
+	"description": "Fabric 1.21.5 QOL mod for Hypixel Skyblock. i love hello kitty",
 	"authors": [
 		"txrsp"
 	],
 	"contact": {
-		"homepage": "https://txrsp.one/",
-		"sources": "https://github.com/critiqalfish/"
+		"homepage": "https://athena.txrsp.one/",
+		"sources": "https://github.com/critiqalfish/athena"
 	},
 	"license": "CC0-1.0",
 	"icon": "assets/hktools/icon.png",
 	"environment": "client",
 	"entrypoints": {
 		"client": [
-			"one.txrsp.hktools.HKTools"
+          "one.txrsp.athena.Athena"
 		]
 	},
 	"mixins": [
-		"hktools.mixins.json"
+		"athena.mixins.json"
 	],
 	"depends": {
 		"fabricloader": ">=0.16.14",

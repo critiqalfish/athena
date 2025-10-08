@@ -1,7 +1,5 @@
-package one.txrsp.hktools.utils;
+package one.txrsp.athena.utils;
 
-import com.mojang.brigadier.context.CommandContext;
-import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.scoreboard.*;
@@ -86,7 +84,7 @@ public class Utils {
     }
 
     public static void HKPrint(Text text) {
-        MinecraftClient.getInstance().inGameHud.getChatHud().addMessage(Text.literal("[HKTools] ").formatted(Formatting.LIGHT_PURPLE).append(text));
+        MinecraftClient.getInstance().inGameHud.getChatHud().addMessage(Text.literal("[Athena] ").formatted(Formatting.LIGHT_PURPLE).append(text));
     }
 
     private static String stripFormatting(String input) {

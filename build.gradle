@@ -38,7 +38,8 @@ dependencies {
 	modImplementation "curse.maven:auth-me-356643:6351772"
 	modImplementation "curse.maven:resourceful-config-714059:6746161"
 	modImplementation "com.teamresourceful.resourcefulconfig:resourcefulconfig-fabric-$minecraft_version:$rconfig_version"
-	
+
+	include "com.teamresourceful.resourcefulconfig:resourcefulconfig-fabric-$minecraft_version:$rconfig_version"
 }
 
 processResources {

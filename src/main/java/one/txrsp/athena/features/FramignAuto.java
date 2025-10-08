@@ -1,4 +1,4 @@
-package one.txrsp.hktools.features;
+package one.txrsp.athena.features;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -14,20 +14,18 @@ import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.*;
-import one.txrsp.hktools.config.HKConfig;
-import one.txrsp.hktools.mixin.InGameHudAccessor;
-import one.txrsp.hktools.pathfinding.PathFollower;
-import one.txrsp.hktools.utils.Crops;
-import one.txrsp.hktools.utils.Utils;
+import one.txrsp.athena.config.AthenaConfig;
+import one.txrsp.athena.mixin.InGameHudAccessor;
+import one.txrsp.athena.pathfinding.PathFollower;
+import one.txrsp.athena.utils.Crops;
+import one.txrsp.athena.utils.Utils;
 import org.lwjgl.glfw.GLFW;
 
-import java.awt.event.MouseMotionListener;
-import java.text.Normalizer;
 import java.util.*;
 
-import static one.txrsp.hktools.HKTools.DEBUG;
-import static one.txrsp.hktools.HKTools.LOGGER;
-import static one.txrsp.hktools.render.RenderUtils.renderBlockMark;
+import static one.txrsp.athena.Athena.DEBUG;
+import static one.txrsp.athena.Athena.LOGGER;
+import static one.txrsp.athena.render.RenderUtils.renderBlockMark;
 
 public class FramignAuto {
     private static KeyBinding keybind;
@@ -86,7 +84,7 @@ public class FramignAuto {
             }
             if (actionPointsList.contains("empty")) {
                 actionPointsList.clear();
-                Collections.addAll(actionPointsList, HKConfig.actionPoints);
+                Collections.addAll(actionPointsList, AthenaConfig.actionPoints);
             }
             if (!DEBUG) {
                 if (!Utils.isInGarden()) {stoppedBlock = null; return;}
@@ -168,8 +166,8 @@ public class FramignAuto {
 
                 lastPos = currentPos;
 
-                if (PestESP.totalPests >= HKConfig.autoPestThreshold && !isPestRemoving && HKConfig.autoPest) {
-                    if (HKConfig.autoPestWarpWait) {
+                if (PestESP.totalPests >= AthenaConfig.autoPestThreshold && !isPestRemoving && AthenaConfig.autoPest) {
+                    if (AthenaConfig.autoPestWarpWait) {
                         autoPestNextWarp = true;
                     } else {
                         initiateAutoPest(client);
@@ -177,7 +175,7 @@ public class FramignAuto {
                     }
                 }
 
-                if (isPestRemoving && HKConfig.autoPest) {
+                if (isPestRemoving && AthenaConfig.autoPest) {
                     rotate = false;
 
                     if (!PestESP.pestPlots.isEmpty()) {
@@ -228,7 +226,7 @@ public class FramignAuto {
                         client.options.useKey.setPressed(false);
                         client.options.forwardKey.setPressed(false);
                         client.player.getInventory().setSelectedSlot(originSlot);
-                        if (HKConfig.autoPestWarpWait) {
+                        if (AthenaConfig.autoPestWarpWait) {
                             wasPestRemoving = false;
                             client.player.networkHandler.sendChatCommand("warp garden");
                             startTimestamp = System.currentTimeMillis();
@@ -260,7 +258,7 @@ public class FramignAuto {
                 } else if (!isPestRemoving) {
                     // normal farming
 
-                    if (brokenCropTimestamps.size() > 10 && !maybeMacroCheck && HKConfig.mcowRemind) {
+                    if (brokenCropTimestamps.size() > 10 && !maybeMacroCheck && AthenaConfig.mcowRemind) {
                         Utils.getTablistLines().forEach(entry -> {
                             if (entry.startsWith("[Lvl") && !entry.contains("Mooshroom Cow")) {
                                 client.inGameHud.setTitle(Text.literal("!!!  WARNING  !!!").formatted(Formatting.BOLD).formatted(Formatting.YELLOW));
@@ -300,6 +298,7 @@ public class FramignAuto {
                                 maybeMacroCheck = true;
                                 rotate = false;
                                 LOGGER.info("Unexpected rotation detected! ΔYaw=" + yaw + " ΔPitch=" + pitch);
+                                Utils.HKPrint(Text.literal("Unexpected rotation detected! ΔYaw=" + yaw + " ΔPitch=" + pitch));
                             }
                         }
 
@@ -317,7 +316,7 @@ public class FramignAuto {
 
                     if (!maybeMacroCheck) rotate = true;
 
-                    for (String s : HKConfig.actionPoints) {
+                    for (String s : AthenaConfig.actionPoints) {
                         if (s.startsWith(client.player.getBlockPos().toString())) {
                             if (!wasActive || stillTicks >= 1) {
                                 String keys = s.substring(s.lastIndexOf("}") + 1);
@@ -333,7 +332,7 @@ public class FramignAuto {
                         }
                     }
 
-                    if (Math.abs(MathHelper.wrapDegrees(client.player.getYaw() - HKConfig.yaw)) < 5) {
+                    if (Math.abs(MathHelper.wrapDegrees(client.player.getYaw() - AthenaConfig.yaw)) < 5) {
                         for (String key : heldKeys) {
                             if (Objects.equals(key, ".")) {
                                 if (autoPestNextWarp) {
@@ -389,12 +388,12 @@ public class FramignAuto {
             }
 
             if (rotate) {
-                smoothRotateTo(HKConfig.yaw, HKConfig.pitch);
+                smoothRotateTo(AthenaConfig.yaw, AthenaConfig.pitch);
             }
 
             if (stoppedBlock != null) renderBlockMark(context.matrixStack(), stoppedBlock, 1f, 0f, 0.2f, 0.9f, false, "");
 
-            if (HKConfig.showActionPoints && !actionPointsList.contains("empty")) {
+            if (AthenaConfig.showActionPoints && !actionPointsList.contains("empty")) {
                 for (String p : actionPointsList) {
                     String[] parts = p.substring(p.indexOf("{") + 1, p.lastIndexOf("}")).split(", ");
                     Vec3i coords = new Vec3i(Integer.parseInt(parts[0].split("=")[1]), Integer.parseInt(parts[1].split("=")[1]), Integer.parseInt(parts[2].split("=")[1]));
@@ -449,7 +448,6 @@ public class FramignAuto {
         float yawDiff   = MathHelper.wrapDegrees(targetYaw - currentYaw);
         float pitchDiff = targetPitch - currentPitch;
 
-        // Distance to target
         double dist = Math.hypot(yawDiff, pitchDiff);
         if (dist < 0.1) {
             mc.player.setYaw(targetYaw);
@@ -457,23 +455,18 @@ public class FramignAuto {
             return;
         }
 
-        // Base "gravity" toward target (like G_0 in wind mouse)
         float g = 0.40f;
 
-        // Random wind influence (wobble) - scales down near target
         float wMag = (float) Math.min(1.5, dist);
         float wYaw   = (float) ((Math.random() * 2 - 1) * wMag * 0.2);
         float wPitch = (float) ((Math.random() * 2 - 1) * wMag * 0.2);
 
-        // Accelerate toward target with wobble
         float windScale = (float)Math.min(1.0, dist / 5.0);
         yawVelocity   += (float) (wYaw   * windScale + g * (yawDiff / dist));
         pitchVelocity += (float) (wPitch * windScale + g * (pitchDiff / dist));
 
-        // Adaptive speed: slower when close
         float adaptiveSpeed = (float) Math.max(0.5, 2.0 * (dist / 40.0));
 
-        // Clip velocity if too fast
         float vMag = (float) Math.hypot(yawVelocity, pitchVelocity);
         if (vMag > adaptiveSpeed) {
             float vClip = adaptiveSpeed / 2 + (float) Math.random() * adaptiveSpeed / 2;
@@ -481,14 +474,12 @@ public class FramignAuto {
             pitchVelocity = pitchVelocity / vMag * vClip;
         }
 
-        // Apply velocity
         float newYaw   = MathHelper.wrapDegrees(currentYaw + yawVelocity);
         float newPitch = MathHelper.clamp(currentPitch + pitchVelocity, -90f, 90f);
 
         mc.player.setYaw(newYaw);
         mc.player.setPitch(newPitch);
 
-        // Light damping to avoid infinite drift
         float damping = dist < 5 ? 0.6f : 0.9f;
         yawVelocity   *= damping;
         pitchVelocity *= damping;

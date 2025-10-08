@@ -1,4 +1,4 @@
-package one.txrsp.hktools.render;
+package one.txrsp.athena.render;
 
 
 import com.mojang.blaze3d.pipeline.BlendFunction;

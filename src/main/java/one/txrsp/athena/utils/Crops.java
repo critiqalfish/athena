@@ -1,4 +1,4 @@
-package one.txrsp.hktools.utils;
+package one.txrsp.athena.utils;
 
 import net.minecraft.block.Block;
 

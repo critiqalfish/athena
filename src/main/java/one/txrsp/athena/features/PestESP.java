@@ -1,26 +1,23 @@
-package one.txrsp.hktools.features;
+package one.txrsp.athena.features;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
-import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
-import one.txrsp.hktools.config.HKConfig;
-import one.txrsp.hktools.render.RenderUtils;
-import one.txrsp.hktools.utils.Utils;
+import one.txrsp.athena.config.AthenaConfig;
+import one.txrsp.athena.render.RenderUtils;
+import one.txrsp.athena.utils.Utils;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static one.txrsp.hktools.HKTools.DEBUG;
-import static one.txrsp.hktools.HKTools.LOGGER;
+import static one.txrsp.athena.Athena.DEBUG;
 
 public class PestESP {
     private static final Box gardenBarnBB = new Box(new Vec3d(-46, 65, -46), new Vec3d(46, 90, 46));
@@ -61,7 +58,7 @@ public class PestESP {
         });
 
         WorldRenderEvents.AFTER_ENTITIES.register(context -> {
-            if (!HKConfig.pestESP) return;
+            if (!AthenaConfig.pestESP) return;
             if (!DEBUG) {
                 if (!Utils.isInGarden()) return;
             }

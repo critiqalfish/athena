@@ -1,4 +1,4 @@
-package one.txrsp.hktools.mixin;
+package one.txrsp.athena.mixin;
 
 import net.minecraft.client.gui.hud.InGameHud;
 import net.minecraft.text.Text;

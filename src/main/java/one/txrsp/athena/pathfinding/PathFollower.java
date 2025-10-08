@@ -1,12 +1,10 @@
-package one.txrsp.hktools.pathfinding;
+package one.txrsp.athena.pathfinding;
 
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.block.BlockState;
-import net.minecraft.block.FenceBlock;
-import net.minecraft.block.FenceGateBlock;
 import net.minecraft.block.TrapdoorBlock;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
@@ -16,7 +14,7 @@ import net.minecraft.util.Formatting;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
-import one.txrsp.hktools.render.RenderUtils;
+import one.txrsp.athena.render.RenderUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,8 +22,7 @@ import java.util.Random;
 
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
-import static one.txrsp.hktools.HKTools.LOGGER;
-import static one.txrsp.hktools.commands.HKToolsCommand.HKPrint;
+import static one.txrsp.athena.commands.AthenaCommand.AthenaPrint;
 
 public class PathFollower {
     private static List<BlockPos> path = new ArrayList<>();
@@ -52,10 +49,10 @@ public class PathFollower {
                                 BlockPos target = new BlockPos(x, y, z);
 
                                 if (pathfind(target)) {
-                                    HKPrint(context, Text.literal("following path. nodes: " + path.size()).formatted(Formatting.WHITE));
+                                    AthenaPrint(context, Text.literal("following path. nodes: " + path.size()).formatted(Formatting.WHITE));
                                 }
                                 else {
-                                    HKPrint(context, Text.literal("no path found :(").formatted(Formatting.WHITE));
+                                    AthenaPrint(context, Text.literal("no path found :(").formatted(Formatting.WHITE));
                                 }
 
                                 return 1;
@@ -335,7 +332,6 @@ public class PathFollower {
         float yawDiff   = MathHelper.wrapDegrees(targetYaw - currentYaw);
         float pitchDiff = targetPitch - currentPitch;
 
-        // Distance to target
         double dist = Math.hypot(yawDiff, pitchDiff);
         if (dist < 0.1) {
             mc.player.setYaw(targetYaw);
@@ -343,23 +339,18 @@ public class PathFollower {
             return;
         }
 
-        // Base "gravity" toward target (like G_0 in wind mouse)
         float g = 0.40f;
 
-        // Random wind influence (wobble) - scales down near target
         float wMag = (float) Math.min(1.5, dist);
         float wYaw   = (float) ((Math.random() * 2 - 1) * wMag * 0.2);
         float wPitch = (float) ((Math.random() * 2 - 1) * wMag * 0.2);
 
-        // Accelerate toward target with wobble
         float windScale = (float)Math.min(1.0, dist / 5.0);
         yawVelocity   += (float) (wYaw   * windScale + g * (yawDiff / dist));
         pitchVelocity += (float) (wPitch * windScale + g * (pitchDiff / dist));
 
-        // Adaptive speed: slower when close
         float adaptiveSpeed = (float) Math.max(0.5, 2.0 * (dist / 40.0));
 
-        // Clip velocity if too fast
         float vMag = (float) Math.hypot(yawVelocity, pitchVelocity);
         if (vMag > adaptiveSpeed) {
             float vClip = adaptiveSpeed / 2 + (float) Math.random() * adaptiveSpeed / 2;
@@ -367,14 +358,12 @@ public class PathFollower {
             pitchVelocity = pitchVelocity / vMag * vClip;
         }
 
-        // Apply velocity
         float newYaw   = MathHelper.wrapDegrees(currentYaw + yawVelocity);
         float newPitch = MathHelper.clamp(currentPitch + pitchVelocity, -90f, 90f);
 
         mc.player.setYaw(newYaw);
         mc.player.setPitch(newPitch);
 
-        // Light damping to avoid infinite drift
         float damping = dist < 5 ? 0.6f : 0.9f;
         yawVelocity   *= damping;
         pitchVelocity *= damping;

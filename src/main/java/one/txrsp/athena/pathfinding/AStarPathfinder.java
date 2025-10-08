@@ -1,4 +1,4 @@
-package one.txrsp.hktools.pathfinding;
+package one.txrsp.athena.pathfinding;
 
 import net.minecraft.block.DoorBlock;
 import net.minecraft.block.SoulSandBlock;
