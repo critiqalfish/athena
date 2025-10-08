@@ -348,6 +348,7 @@ public class FramignAuto {
                                 break;
                             } else {
                                 waitForWarp = false;
+                                startTimestamp = System.currentTimeMillis();
                                 keybindsTranslation.get(key).setPressed(true);
                                 client.options.attackKey.setPressed(true);
                             }

@@ -34,6 +34,6 @@ public class HKConfig {
     public static boolean showActionPoints = false;
 
     @ConfigEntry(id="actionPoints", translation="action points")
-    //@ConfigOption.Hidden()
+    @ConfigOption.Hidden()
     public static String[] actionPoints = new String[]{};
 }
