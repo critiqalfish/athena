@@ -2,6 +2,7 @@ package one.txrsp.athena.commands;
 
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument;
+import static one.txrsp.athena.utils.Crops.getCropForTool;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
@@ -14,6 +15,9 @@ import net.minecraft.util.Formatting;
 import one.txrsp.athena.Athena;
 import one.txrsp.athena.config.AthenaConfig;
 import one.txrsp.athena.features.FramignAuto;
+import one.txrsp.athena.utils.Crops;
+
+import static one.txrsp.athena.Athena.LOGGER;
 
 public class AthenaCommand {
     public static void init() {
@@ -46,7 +50,13 @@ public class AthenaCommand {
                                     }
                                 }
                                 if (!FramignAuto.actionPointsList.contains(MinecraftClient.getInstance().player.getBlockPos().toString() + keys)) {
-                                    FramignAuto.actionPointsList.add(MinecraftClient.getInstance().player.getBlockPos().toString() + keys);
+                                    String cropName = Crops.getCropForTool(MinecraftClient.getInstance().player.getInventory().getSelectedStack().getName().getString()).name();
+                                    LOGGER.info(cropName);
+                                    if (cropName.equals("NONE")) {
+                                        AthenaPrint(context, Text.literal("hold a farming tool in your hand").formatted(Formatting.WHITE));
+                                        return 1;
+                                    }
+                                    FramignAuto.actionPointsList.add(cropName + "|" + MinecraftClient.getInstance().player.getBlockPos().toString() + keys);
                                     AthenaConfig.actionPoints = FramignAuto.actionPointsList.toArray(new String[0]);
                                     Athena.CONFIG.saveConfig(AthenaConfig.class);
                                     AthenaPrint(context, Text.literal("added this point").formatted(Formatting.WHITE));

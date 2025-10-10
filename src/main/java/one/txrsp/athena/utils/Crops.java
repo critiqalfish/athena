@@ -74,4 +74,8 @@ public class Crops {
             return CROP.NONE;
         }
     }
+
+    public static CROP getCropForString(String cropName) {
+        return CROP.valueOf(cropName);
+    }
 }

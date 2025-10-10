@@ -302,6 +302,12 @@ public class PathFollower {
                 jump.setPressed(true);
                 sneak.setPressed(false);
             }
+
+            if (world.getBlockState(blockInFrontOfHead.down(2)).getBlock() instanceof TrapdoorBlock &&
+                    world.getBlockState(blockInFrontOfHead.down(2)).get(TrapdoorBlock.OPEN)) {
+                jump.setPressed(true);
+                sneak.setPressed(false);
+            }
         }
     }
 

@@ -3,6 +3,7 @@ package one.txrsp.athena.utils;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.scoreboard.*;
+import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.BlockPos;
@@ -10,6 +11,7 @@ import net.minecraft.util.math.BlockPos;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 
 public class Utils {
     public static boolean isInGarden() {
@@ -83,12 +85,18 @@ public class Utils {
         return true;
     }
 
-    public static void HKPrint(Text text) {
-        MinecraftClient.getInstance().inGameHud.getChatHud().addMessage(Text.literal("[Athena] ").formatted(Formatting.LIGHT_PURPLE).append(text));
+    public static void AthenaPrint(Text text) {
+        MinecraftClient.getInstance().inGameHud.getChatHud().addMessage(Text.literal("[Athena] ").formatted(Formatting.LIGHT_PURPLE).append(MutableText.of(text.getContent()).formatted(Formatting.WHITE)));
     }
 
     private static String stripFormatting(String input) {
         return input.replaceAll("\uD83C\uDF6B|\uD83D\uDCA3|\uD83D\uDC7D|\uD83D\uDD2E|\uD83D\uDC0D|\uD83D\uDC7E|\uD83C\uDF20|\uD83C\uDF6D|\u26BD|\uD83C\uDFC0|\uD83D\uDC79|\uD83C\uDF81|\uD83C\uDF89|\uD83C\uDF82|\uD83D\uDD2B", "");
+    }
+
+    // inclusive
+    public static int randIntBetween(int min, int max) {
+        Random rand = new Random();
+        return rand.nextInt((max - min) + 1) + min;
     }
 }
 

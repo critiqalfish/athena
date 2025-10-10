@@ -36,4 +36,7 @@ public class AthenaConfig {
     @ConfigEntry(id="actionPoints", translation="action points")
     @ConfigOption.Hidden()
     public static String[] actionPoints = new String[]{};
+
+    @ConfigEntry(id="autoFisher", translation="autoFisher")
+    public static boolean autoFisher = true;
 }

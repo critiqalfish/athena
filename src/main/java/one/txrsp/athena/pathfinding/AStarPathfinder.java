@@ -1,6 +1,7 @@
 package one.txrsp.athena.pathfinding;
 
 import net.minecraft.block.DoorBlock;
+import net.minecraft.block.FenceGateBlock;
 import net.minecraft.block.SoulSandBlock;
 import net.minecraft.block.TrapdoorBlock;
 import net.minecraft.client.MinecraftClient;
@@ -173,6 +174,7 @@ public class AStarPathfinder {
         if (!state.getFluidState().isEmpty()) return true;
         if (state.getBlock() instanceof DoorBlock && state.get(DoorBlock.OPEN)) return true;
         if (state.getBlock() instanceof TrapdoorBlock && state.get(TrapdoorBlock.OPEN)) return true;
+        if (state.getBlock() instanceof FenceGateBlock && state.get(FenceGateBlock.OPEN)) return true;
 
         var shape = state.getCollisionShape(world, pos);
         if (shape.isEmpty()) return true;

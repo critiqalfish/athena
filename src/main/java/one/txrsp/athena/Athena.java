@@ -8,7 +8,10 @@ import one.txrsp.athena.commands.AthenaCommand;
 import one.txrsp.athena.config.AthenaConfig;
 import one.txrsp.athena.features.FramignAuto;
 import one.txrsp.athena.features.PestESP;
+import one.txrsp.athena.features.SimpleAutoFisher;
 import one.txrsp.athena.pathfinding.PathFollower;
+import one.txrsp.athena.utils.KeyPressHelper;
+import one.txrsp.athena.utils.OnceAgain;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,6 +51,9 @@ public class Athena implements ClientModInitializer {
 		FramignAuto.init();
 		PathFollower.init();
 		PestESP.init();
+		SimpleAutoFisher.init();
+		KeyPressHelper.init();
+		OnceAgain.init();
 		CONFIG.register(AthenaConfig.class);
 	}
 }
