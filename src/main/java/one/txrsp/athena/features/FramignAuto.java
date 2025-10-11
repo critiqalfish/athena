@@ -87,8 +87,12 @@ public class FramignAuto {
             }
             if (client.player == null) return;
             if (client.currentScreen != null) {
-                startTimestamp = System.currentTimeMillis();
-                return;
+                if (isPestRemoving && Objects.equals(client.currentScreen.getTitle().getString(), "Stereo Harmony")) {
+                    client.currentScreen.close();
+                } else {
+                    startTimestamp = System.currentTimeMillis();
+                    return;
+                }
             }
             if (actionPointsList.contains("empty")) {
                 actionPointsList.clear();
@@ -194,7 +198,7 @@ public class FramignAuto {
                         } else if (currentPlot == PestESP.pestPlots.getFirst()) {
                             waitForTP = false;
 
-                            OnceAgain.swingHandWithCooldown(20, true);
+                            OnceAgain.swingHandWithCooldown(30, true);
 
                             if (!PestESP.pests.isEmpty() && currentPos.squaredDistanceTo(PestESP.pests.getFirst().getCenter()) < 144) {
                                 client.options.useKey.setPressed(true);
@@ -332,6 +336,7 @@ public class FramignAuto {
                             if (!wasActive || stillTicks >= 1) {
                                 String keys = s.substring(s.lastIndexOf("}") + 1);
                                 heldKeys.clear();
+                                startTimestamp = System.currentTimeMillis();
                                 for (char k : keys.toCharArray()) {
                                     heldKeys.add(String.valueOf(k));
                                 }
@@ -373,7 +378,6 @@ public class FramignAuto {
                                 break;
                             } else {
                                 waitForWarp = false;
-                                startTimestamp = System.currentTimeMillis();
                                 keybindsTranslation.get(key).setPressed(true);
                                 client.options.attackKey.setPressed(true);
                             }

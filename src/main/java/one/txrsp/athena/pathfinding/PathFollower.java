@@ -23,6 +23,7 @@ import java.util.Random;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
 import static one.txrsp.athena.commands.AthenaCommand.AthenaPrint;
+import static one.txrsp.athena.Athena.LOGGER;
 
 public class PathFollower {
     private static List<BlockPos> path = new ArrayList<>();
@@ -133,7 +134,12 @@ public class PathFollower {
         double distance = dir.length();
 
         if (distance < 1) {
-            currentIndex++;
+            if (currentIndex < path.size() - 1) {
+                currentIndex++;
+            } else if (currentIndex == path.size() - 1 && mc.player.getVelocity().length() < 0.1) {
+                currentIndex++;
+            }
+
             if (currentIndex >= path.size()) {
                 following = false;
                 found = true;
@@ -219,17 +225,33 @@ public class PathFollower {
             }
 
             if (Math.abs(MathHelper.wrapDegrees(mc.player.getYaw() - yaw)) < 15) {
-                forward.setPressed(true);
-                back.setPressed(false);
+                LOGGER.info("hd " + horizontalDist);
+                LOGGER.info("v " + vel.length());
                 if (segmentDir.length() > 20 && segmentHoriz.length() > 30) {
                     if (horizontalDist > 12) {
+                        forward.setPressed(true);
+                        back.setPressed(false);
                         sprint.setPressed(true);
+                    } else if (horizontalDist < 4 && vel.length() > 0.2) {
+                        forward.setPressed(false);
+                        back.setPressed(true);
                     } else if (horizontalDist < 12 && vel.length() > 0.45) {
-                            forward.setPressed(false);
-                            back.setPressed(true);
+                        forward.setPressed(true);
+                        back.setPressed(false);
+                        sprint.setPressed(false);
+                    }
+                    else {
+                        forward.setPressed(true);
                     }
                 } else {
-                    sprint.setPressed(false);
+                    if (horizontalDist < 2 && vel.length() > 0.15) {
+                        forward.setPressed(false);
+                        back.setPressed(true);
+                    }
+                    else {
+                        forward.setPressed(true);
+                        back.setPressed(false);
+                    }
                 }
             } else {
                 forward.setPressed(false);
