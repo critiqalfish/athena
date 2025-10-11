@@ -19,8 +19,10 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.*;
 import one.txrsp.athena.Athena;
+import one.txrsp.athena.commands.AthenaCommand;
 import one.txrsp.athena.config.AthenaConfig;
 import one.txrsp.athena.mixin.InGameHudAccessor;
+import one.txrsp.athena.pathfinding.AStarPathfinder;
 import one.txrsp.athena.pathfinding.PathFollower;
 import one.txrsp.athena.utils.Crops;
 import one.txrsp.athena.utils.KeyPressHelper;
@@ -87,8 +89,10 @@ public class FramignAuto {
             }
             if (client.player == null) return;
             if (client.currentScreen != null) {
-                if (isPestRemoving && Objects.equals(client.currentScreen.getTitle().getString(), "Stereo Harmony")) {
-                    client.currentScreen.close();
+                if (isPestRemoving && !client.currentScreen.getTitle().getString().contains("Pets") || isPestRemoving && Objects.equals(client.currentScreen.getTitle().getString(), "Stereo Harmony")) {
+                    OnceAgain.executeWithCooldown("screenclose", 20, () -> {
+                        MinecraftClient.getInstance().currentScreen.close();
+                    });
                 } else {
                     startTimestamp = System.currentTimeMillis();
                     return;
@@ -168,6 +172,7 @@ public class FramignAuto {
                     waitForTP = false;
                     startTimestamp = System.currentTimeMillis();
                     maybeMacroCheck = false;
+                    if (AthenaConfig.autoPetSwitch) PetSwitcher.switchPet("Mooshroom Cow");
                 }
 
                 if (lastPos != null && currentPos.distanceTo(lastPos) < 0.001) {
@@ -191,7 +196,11 @@ public class FramignAuto {
                     rotate = false;
 
                     if (!PestESP.pestPlots.isEmpty()) {
-                        if (!waitForTP && currentPlot != PestESP.pestPlots.getFirst()) {
+                        if (AthenaConfig.autoPetSwitch && !Objects.equals(PetSwitcher.targetPet, "Hedgehog")) {
+                            PetSwitcher.switchPet("Hedgehog");
+                        } else if (PetSwitcher.isSwitching) {
+                            // chill out
+                        } else if (!waitForTP && currentPlot != PestESP.pestPlots.getFirst()) {
                             waitForTP = true;
                             PathFollower.stop();
                             client.player.networkHandler.sendChatCommand("plottp " + PestESP.pestPlots.getFirst());
@@ -215,7 +224,13 @@ public class FramignAuto {
                                             box.maxY + 8,
                                             (box.minZ + box.maxZ) / 2.0
                                     );
-                                    PathFollower.pathfind(pestPos);
+                                    if (!AStarPathfinder.isPathfinding) {
+                                        PathFollower.pathfind(pestPos, success -> {
+                                            if (success) {
+
+                                            }
+                                        });
+                                    }
                                 } else {
                                     PathFollower.stop();
                                 }
@@ -226,7 +241,13 @@ public class FramignAuto {
                                         box.maxY + 8,
                                         (box.minZ + box.maxZ) / 2.0
                                 );
-                                PathFollower.pathfind(pestPos);
+                                if (!AStarPathfinder.isPathfinding) {
+                                    PathFollower.pathfind(pestPos, success -> {
+                                        if (success) {
+
+                                        }
+                                    });
+                                }
                             }
                         } else if (currentPlot != PestESP.pestPlots.getFirst()) {
                             client.options.forwardKey.setPressed(true);
@@ -241,10 +262,12 @@ public class FramignAuto {
                         client.options.useKey.setPressed(false);
                         client.options.forwardKey.setPressed(false);
                         client.player.getInventory().setSelectedSlot(originSlot);
+                        if (AthenaConfig.autoPetSwitch) PetSwitcher.switchPet("Mooshroom Cow");
+
                         if (AthenaConfig.autoPestWarpWait) {
                             wasPestRemoving = false;
-                            client.player.networkHandler.sendChatCommand("warp garden");
                             startTimestamp = System.currentTimeMillis();
+                            client.player.networkHandler.sendChatCommand("warp garden");
                         } else {
                             wasPestRemoving = true;
                             client.player.networkHandler.sendChatCommand("plottp " + originPlot);
@@ -264,7 +287,13 @@ public class FramignAuto {
                          if (!PathFollower.following) {
                             if (Utils.allVisibleChunksLoaded(client)) {
                                 client.options.forwardKey.setPressed(false);
-                                PathFollower.pathfind(originBlock);
+                                if (!AStarPathfinder.isPathfinding) {
+                                    PathFollower.pathfind(originBlock, success -> {
+                                        if (success) {
+
+                                        }
+                                    });
+                                }
                             }
                         }
                     } else {
@@ -272,28 +301,10 @@ public class FramignAuto {
                     }
                 } else if (!isPestRemoving) {
                     // normal farming
-
-                    if (brokenCropTimestamps.size() > 10 && !maybeMacroCheck && AthenaConfig.mcowRemind) {
-                        Utils.getTablistLines().forEach(entry -> {
-                            if (entry.startsWith("[Lvl") && !entry.contains("Mooshroom Cow")) {
-                                client.inGameHud.setTitle(Text.literal("!!!  WARNING  !!!").formatted(Formatting.BOLD).formatted(Formatting.YELLOW));
-                                client.inGameHud.setSubtitle(Text.literal("No Mooshroom Cow Pet selected.").formatted(Formatting.BOLD).formatted(Formatting.YELLOW));
-                                client.inGameHud.setTitleTicks(0, 10, 0);
-                            }
-                        });
-                    }
+                    client.options.attackKey.setPressed(true);
 
                     if (client.player.getAbilities().flying) client.options.sneakKey.setPressed(true);
                     else client.options.sneakKey.setPressed(false);
-
-                    if (brokenCropTimestamps.size() < 1 && System.currentTimeMillis() - startTimestamp > 2000) {
-                        maybeMacroCheck = true;
-                        rotate = false;
-                    }
-
-//                    if (maybeMacroCheck && brokenCropTimestamps.size() > 10) {
-//                        maybeMacroCheck = false;
-//                    }
 
                     if (!Float.isNaN(lastYaw) && !Float.isNaN(lastPitch)) {
                         float yaw = client.player.getYaw();
@@ -361,6 +372,11 @@ public class FramignAuto {
                             AthenaPrint(Text.literal("added this point"));
                             Athena.CONFIG.saveConfig(AthenaConfig.class);
                         }
+                    }
+
+                    if (brokenCropTimestamps.size() < 1 && System.currentTimeMillis() - startTimestamp > 2000) {
+                        maybeMacroCheck = true;
+                        rotate = false;
                     }
 
                     if (Math.abs(MathHelper.wrapDegrees(client.player.getYaw() - AthenaConfig.yaw)) < 5) {

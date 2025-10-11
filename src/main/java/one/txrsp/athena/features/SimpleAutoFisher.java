@@ -1,6 +1,10 @@
 package one.txrsp.athena.features;
 
+import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
+import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.item.Items;
 import net.minecraft.text.Text;
@@ -16,9 +20,9 @@ import static one.txrsp.athena.Athena.LOGGER;
 public class SimpleAutoFisher {
     private static boolean autoFishing = false;
     private static int ticksUntilUse = -1;
+    private static long lastRod = 0;
 
     public static void init() {
-
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             if (!AthenaConfig.autoFisher) return;
             if (mc.player == null) return;
@@ -29,9 +33,12 @@ public class SimpleAutoFisher {
             if (holdingRod && mc.options.useKey.isPressed()) {
                 if (!autoFishing && mc.player.fishHook == null) {
                     autoFishing = true;
+                    mc.options.pauseOnLostFocus = false;
+                    lastRod = System.currentTimeMillis();
                     Utils.AthenaPrint(Text.literal("autoFishing now"));
                 } else if (autoFishing) {
                     autoFishing = false;
+                    mc.options.pauseOnLostFocus = true;
                     Utils.AthenaPrint(Text.literal("autoFishing stopped"));
                 }
                 mc.options.useKey.setPressed(false);
@@ -43,6 +50,9 @@ public class SimpleAutoFisher {
             }
 
             if (autoFishing) {
+                if (mc.player.fishHook == null && ticksUntilUse == -1 && System.currentTimeMillis() - lastRod > 3000) {
+                    ticksUntilUse = Utils.randIntBetween(3, 7);
+                }
                 if (mc.player.fishHook != null && mc.player.fishHook.isInFluid()) {
                     List<ArmorStandEntity> as = mc.world.getEntitiesByClass(ArmorStandEntity.class, mc.player.getBoundingBox().expand(50), e -> e.hasCustomName() && Objects.equals(e.getCustomName().getString(), "!!!"));
 
@@ -59,12 +69,21 @@ public class SimpleAutoFisher {
                             ticksUntilUse = Utils.randIntBetween(10, 20);
                         }
 
+                        lastRod = System.currentTimeMillis();
                         mc.player.swingHand(mc.player.getActiveHand());
                         mc.interactionManager.interactItem(mc.player, mc.player.getActiveHand());
                     }
                 }
             } else {
                 ticksUntilUse = -1;
+            }
+        });
+
+        ClientReceiveMessageEvents.GAME.register((msg, bool) -> {
+            String text = msg.getString();
+
+            if (text.contains("Golden Fish escapes") || text.contains("Golden Fish is weak")) {
+                if (ticksUntilUse == -1) ticksUntilUse = Utils.randIntBetween(8, 16);
             }
         });
     }

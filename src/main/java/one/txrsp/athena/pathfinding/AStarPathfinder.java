@@ -11,8 +11,15 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import static one.txrsp.athena.Athena.LOGGER;
 
 public class AStarPathfinder {
+    private static final int MAX_STEPS = 150000;
+    public static volatile boolean isPathfinding = false;
 
     private static class Node {
         BlockPos pos;
@@ -28,11 +35,25 @@ public class AStarPathfinder {
             new BlockPos(0, 1, 0), new BlockPos(0, -1, 0)
     };
 
-    public static List<BlockPos> findPath(BlockPos start, BlockPos goal, World world) {
+    private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
+
+    public static CompletableFuture<List<BlockPos>> findPathAsync(BlockPos start, BlockPos goal, World world) {
+        return CompletableFuture.supplyAsync(() -> {
+            isPathfinding = true;
+            try {
+                return findPathInternal(start, goal, world);
+            } finally {
+                isPathfinding = false;
+            }
+        });
+    }
+
+    public static List<BlockPos> findPathInternal(BlockPos start, BlockPos goal, World world) {
         PriorityQueue<Node> open = new PriorityQueue<>(Comparator.comparingDouble(n -> n.f));
         Map<BlockPos, Node> openMap = new HashMap<>();
         Set<BlockPos> closed = new HashSet<>();
 
+        if (!isPassable(world, goal)) goal = goal.up();
         if (world.getBlockState(start).getBlock() instanceof SoulSandBlock) start = start.up();
         if (world.getBlockState(goal).getBlock() instanceof SoulSandBlock) goal = goal.up();
 
@@ -44,7 +65,13 @@ public class AStarPathfinder {
         open.add(startNode);
         openMap.put(start, startNode);
 
+        int steps = 0;
+
         while (!open.isEmpty()) {
+            if (steps++ > MAX_STEPS) {
+                LOGGER.info("pathfinding steps limit reached");
+                break;
+            }
             Node current = open.poll();
             openMap.remove(current.pos);
             if (current.pos.equals(goal)) {

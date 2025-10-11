@@ -19,6 +19,8 @@ import one.txrsp.athena.render.RenderUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
@@ -26,7 +28,7 @@ import static one.txrsp.athena.commands.AthenaCommand.AthenaPrint;
 import static one.txrsp.athena.Athena.LOGGER;
 
 public class PathFollower {
-    private static List<BlockPos> path = new ArrayList<>();
+    public static List<BlockPos> path = new ArrayList<>();
     private static int currentIndex = 0;
     public static boolean following = false;
     public static boolean found = false;
@@ -38,31 +40,6 @@ public class PathFollower {
     private static final Random random = new Random();
 
     public static void init() {
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
-            literal("pathfind")
-                .then(argument("x", IntegerArgumentType.integer())
-                    .then(argument("y", IntegerArgumentType.integer())
-                        .then(argument("z", IntegerArgumentType.integer())
-                            .executes(context -> {
-                                int x = IntegerArgumentType.getInteger(context, "x");
-                                int y = IntegerArgumentType.getInteger(context, "y");
-                                int z = IntegerArgumentType.getInteger(context, "z");
-                                BlockPos target = new BlockPos(x, y, z);
-
-                                if (pathfind(target)) {
-                                    AthenaPrint(context, Text.literal("following path. nodes: " + path.size()).formatted(Formatting.WHITE));
-                                }
-                                else {
-                                    AthenaPrint(context, Text.literal("no path found :(").formatted(Formatting.WHITE));
-                                }
-
-                                return 1;
-                            })
-                        )
-                    )
-                )
-        ));
-
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             if (mc.player == null) return;
 
@@ -103,22 +80,22 @@ public class PathFollower {
         });
     }
 
-    public static boolean pathfind(BlockPos to) {
+    public static void pathfind(BlockPos goal, Consumer<Boolean> callback) {
         ClientWorld world = MinecraftClient.getInstance().world;
         BlockPos playerPos = MinecraftClient.getInstance().player.getBlockPos();
-        path = AStarPathfinder.findPath(playerPos, to, world);
-        if (!path.isEmpty()) {
-            following = true;
-            goal = to;
-            found = false;
-            currentIndex = 0;
-            flightToggleTimer = 4;
-            lastJump = 0;
-            return true;
-        }
-        else {
-            return false;
-        }
+        AStarPathfinder.findPathAsync(playerPos, goal, world).thenAccept(path -> {
+            boolean success = !path.isEmpty();
+            if (success) {
+                PathFollower.path = path;
+                following = true;
+                PathFollower.goal = goal;
+                found = false;
+                currentIndex = 0;
+                flightToggleTimer = 4;
+                lastJump = 0;
+            }
+            callback.accept(success);
+        });
     }
 
     private static void followPath() {
@@ -129,6 +106,9 @@ public class PathFollower {
         Vec3d eyePos = mc.player.getEyePos();
         BlockPos targetNode = path.get(currentIndex);
         Vec3d targetCenter = Vec3d.ofCenter(targetNode);
+        if (currentIndex == path.size() - 1 && AStarPathfinder.isPassable(world, targetNode)) {
+            targetCenter.subtract(0, 0.3, 0);
+        }
 
         Vec3d dir = targetCenter.subtract(playerPos);
         double distance = dir.length();
@@ -225,8 +205,6 @@ public class PathFollower {
             }
 
             if (Math.abs(MathHelper.wrapDegrees(mc.player.getYaw() - yaw)) < 15) {
-                LOGGER.info("hd " + horizontalDist);
-                LOGGER.info("v " + vel.length());
                 if (segmentDir.length() > 20 && segmentHoriz.length() > 30) {
                     if (horizontalDist > 12) {
                         forward.setPressed(true);
@@ -244,7 +222,7 @@ public class PathFollower {
                         forward.setPressed(true);
                     }
                 } else {
-                    if (horizontalDist < 2 && vel.length() > 0.15) {
+                    if (horizontalDist < 2 && vel.length() > 0.2) {
                         forward.setPressed(false);
                         back.setPressed(true);
                     }
@@ -301,7 +279,9 @@ public class PathFollower {
 
             if (verticalOffset > verticalTolerance) {
                 jump.setPressed(false);
-                sneak.setPressed(true);
+                if (AStarPathfinder.isPassable(world, mc.player.getBlockPos().down())) {
+                    sneak.setPressed(true);
+                } else sneak.setPressed(false);
             } else if (verticalOffset < -verticalTolerance) {
                 if (lastJump > 6) {
                     jump.setPressed(true);
@@ -313,6 +293,8 @@ public class PathFollower {
                 sneak.setPressed(false);
             }
 
+            //LOGGER.info(String.valueOf(playerPos.distanceTo(blockInFrontOfHead.toCenterPos())));
+            //playerPos.distanceTo(blockInFrontOfHead.toCenterPos()) < 1 &&
             if (!AStarPathfinder.isPassable(world, blockInFrontOfHead) &&
                     AStarPathfinder.isPassable(world, blockInFrontOfHead.down()) &&
                     AStarPathfinder.isPassable(world, blockInFrontOfHead.down(2))) {

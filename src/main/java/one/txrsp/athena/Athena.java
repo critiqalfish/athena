@@ -8,6 +8,7 @@ import one.txrsp.athena.commands.AthenaCommand;
 import one.txrsp.athena.config.AthenaConfig;
 import one.txrsp.athena.features.FramignAuto;
 import one.txrsp.athena.features.PestESP;
+import one.txrsp.athena.features.PetSwitcher;
 import one.txrsp.athena.features.SimpleAutoFisher;
 import one.txrsp.athena.pathfinding.PathFollower;
 import one.txrsp.athena.utils.KeyPressHelper;
@@ -54,6 +55,7 @@ public class Athena implements ClientModInitializer {
 		SimpleAutoFisher.init();
 		KeyPressHelper.init();
 		OnceAgain.init();
+		PetSwitcher.init();
 		CONFIG.register(AthenaConfig.class);
 	}
 }

@@ -25,10 +25,10 @@ public class AthenaConfig {
     public static int autoPestThreshold = 4;
 
     @ConfigEntry(id="autoPestWarpWait", translation="autoPest wait for warp")
-    public static boolean autoPestWarpWait = false;
+    public static boolean autoPestWarpWait = true;
 
-    @ConfigEntry(id="mcowRemind", translation="mooshroom cow reminder")
-    public static boolean mcowRemind = true;
+    @ConfigEntry(id="autoPetSwitch", translation="auto hedgehog/mcow switcher")
+    public static boolean autoPetSwitch = true;
 
     @ConfigEntry(id="showActionPoints", translation="show action points")
     public static boolean showActionPoints = false;
