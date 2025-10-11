@@ -31,7 +31,8 @@ public class AthenaCommand {
                 .then(literal("points")
                     .then(literal("delete")
                         .executes(context -> {
-                            boolean removed = FramignAuto.actionPointsList.removeIf(s -> s.startsWith(MinecraftClient.getInstance().player.getBlockPos().toString()));
+                            String cropName = Crops.getCropForTool(MinecraftClient.getInstance().player.getInventory().getSelectedStack().getName().getString()).name();
+                            boolean removed = FramignAuto.actionPointsList.removeIf(s -> s.startsWith(cropName + "|" + MinecraftClient.getInstance().player.getBlockPos().toString()));
                             if (removed) AthenaPrint(context, Text.literal("removed this point").formatted(Formatting.WHITE));
                             else AthenaPrint(context, Text.literal("no point to remove").formatted(Formatting.WHITE));
                             AthenaConfig.actionPoints = FramignAuto.actionPointsList.toArray(new String[0]);
@@ -49,9 +50,8 @@ public class AthenaCommand {
                                         return 1;
                                     }
                                 }
-                                if (!FramignAuto.actionPointsList.contains(MinecraftClient.getInstance().player.getBlockPos().toString() + keys)) {
-                                    String cropName = Crops.getCropForTool(MinecraftClient.getInstance().player.getInventory().getSelectedStack().getName().getString()).name();
-                                    LOGGER.info(cropName);
+                                String cropName = Crops.getCropForTool(MinecraftClient.getInstance().player.getInventory().getSelectedStack().getName().getString()).name();
+                                if (FramignAuto.actionPointsList.stream().noneMatch(s -> s.startsWith(cropName + "|" + MinecraftClient.getInstance().player.getBlockPos().toString()))) {
                                     if (cropName.equals("NONE")) {
                                         AthenaPrint(context, Text.literal("hold a farming tool in your hand").formatted(Formatting.WHITE));
                                         return 1;
