@@ -540,7 +540,6 @@ public class FramignAuto {
 
     private static void onBlockBroken(Block block) {
         long now = System.currentTimeMillis();
-        LOGGER.info("broke " + block.getTranslationKey() + " " + Crops.getCropForBlock(block));
         if (Crops.getCropForBlock(block) == currentCrop) {
             LOGGER.info(currentCrop.name());
             brokenCropTimestamps.add(now);
