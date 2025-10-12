@@ -22,6 +22,7 @@ import one.txrsp.athena.features.FramignAuto;
 import one.txrsp.athena.features.PetSwitcher;
 import one.txrsp.athena.pathfinding.AStarPathfinder;
 import one.txrsp.athena.utils.Crops;
+import one.txrsp.athena.utils.Utils;
 
 import static one.txrsp.athena.Athena.LOGGER;
 
@@ -37,11 +38,20 @@ public class AthenaCommand {
                 .then(literal("points")
                     .then(literal("delete")
                         .executes(context -> {
+                            if (!Utils.isInGarden()) {
+                                AthenaPrint(context, Text.literal("not in Garden").formatted(Formatting.WHITE));
+                                return 1;
+                            }
+
                             String cropName = Crops.getCropForTool(MinecraftClient.getInstance().player.getInventory().getSelectedStack().getName().getString()).name();
                             boolean removed = FramignAuto.actionPointsList.removeIf(s -> s.startsWith(cropName + "|" + MinecraftClient.getInstance().player.getBlockPos().toString()));
                             if (removed) AthenaPrint(context, Text.literal("removed this point").formatted(Formatting.WHITE));
-                            else AthenaPrint(context, Text.literal("no point to remove").formatted(Formatting.WHITE));
-                            AthenaConfig.actionPoints = FramignAuto.actionPointsList.toArray(new String[0]);
+                            else {
+                                AthenaPrint(context, Text.literal("no point to remove").formatted(Formatting.WHITE));
+                                return 1;
+                            }
+
+                            AthenaConfig.Farming.actionPoints = FramignAuto.actionPointsList.toArray(new String[0]);
                             Athena.CONFIG.saveConfig(AthenaConfig.class);
                             return 1;
                         })
@@ -49,6 +59,11 @@ public class AthenaCommand {
                     .then(literal("add")
                         .then(argument("args", StringArgumentType.string())
                             .executes(context -> {
+                                if (!Utils.isInGarden()) {
+                                    AthenaPrint(context, Text.literal("not in Garden").formatted(Formatting.WHITE));
+                                    return 1;
+                                }
+
                                 String keys = StringArgumentType.getString(context, "args").toUpperCase();
                                 for (char c : keys.toCharArray()) {
                                     if ("WASD.".indexOf(c) == -1) {
@@ -56,6 +71,7 @@ public class AthenaCommand {
                                         return 1;
                                     }
                                 }
+
                                 String cropName = Crops.getCropForTool(MinecraftClient.getInstance().player.getInventory().getSelectedStack().getName().getString()).name();
                                 if (FramignAuto.actionPointsList.stream().noneMatch(s -> s.startsWith(cropName + "|" + MinecraftClient.getInstance().player.getBlockPos().toString()))) {
                                     if (cropName.equals("NONE")) {
@@ -63,7 +79,7 @@ public class AthenaCommand {
                                         return 1;
                                     }
                                     FramignAuto.actionPointsList.add(cropName + "|" + MinecraftClient.getInstance().player.getBlockPos().toString() + keys);
-                                    AthenaConfig.actionPoints = FramignAuto.actionPointsList.toArray(new String[0]);
+                                    AthenaConfig.Farming.actionPoints = FramignAuto.actionPointsList.toArray(new String[0]);
                                     Athena.CONFIG.saveConfig(AthenaConfig.class);
                                     AthenaPrint(context, Text.literal("added this point").formatted(Formatting.WHITE));
                                 }
@@ -86,7 +102,7 @@ public class AthenaCommand {
                                     BlockPos target = new BlockPos(x, y, z);
 
                                     if (!AStarPathfinder.isPathfinding) {
-                                        pathfind(target, success -> {
+                                        pathfind(target, null, success -> {
                                             if (success) {
                                                 AthenaPrint(context, Text.literal("following path. nodes: " + path.size()).formatted(Formatting.WHITE));
                                             } else {

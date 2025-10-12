@@ -3,15 +3,18 @@ package one.txrsp.athena.features;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.item.Items;
 import net.minecraft.text.Text;
 import one.txrsp.athena.config.AthenaConfig;
+import one.txrsp.athena.render.RenderUtils;
 import one.txrsp.athena.utils.KeyPressHelper;
 import one.txrsp.athena.utils.Utils;
 
+import java.awt.*;
 import java.util.List;
 import java.util.Objects;
 
@@ -21,14 +24,15 @@ public class SimpleAutoFisher {
     private static boolean autoFishing = false;
     private static int ticksUntilUse = -1;
     private static long lastRod = 0;
+    private static boolean holdingRod = false;
 
     public static void init() {
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
-            if (!AthenaConfig.autoFisher) return;
+            if (!AthenaConfig.Fishing.autoFisher) return;
             if (mc.player == null) return;
             if (mc.currentScreen != null) return;
 
-            boolean holdingRod = mc.player.getMainHandStack().isOf(Items.FISHING_ROD);
+            holdingRod = mc.player.getMainHandStack().isOf(Items.FISHING_ROD);
 
             if (holdingRod && mc.options.useKey.isPressed()) {
                 if (!autoFishing && mc.player.fishHook == null) {
@@ -86,5 +90,18 @@ public class SimpleAutoFisher {
                 if (ticksUntilUse == -1) ticksUntilUse = Utils.randIntBetween(8, 16);
             }
         });
+
+        HudRenderCallback.EVENT.register(((drawContext, renderTickCounter) -> {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if (mc.player == null) return;
+            if (!AthenaConfig.statusIndicator) return;
+            if (!holdingRod) return;
+
+            if (autoFishing) {
+                RenderUtils.drawStatusLabel(drawContext, "Athena", Color.GREEN);
+            } else {
+                RenderUtils.drawStatusLabel(drawContext, "Athena", Color.RED);
+            }
+        }));
     }
 }

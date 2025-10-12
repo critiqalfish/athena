@@ -42,7 +42,6 @@ public class OnceAgain {
 
     public static void swingHandWithCooldown(int ticks, boolean noSneak) {
         if (!swingHandInProgress) {
-            LOGGER.info(String.valueOf(swingHandInProgress));
             MinecraftClient.getInstance().player.swingHand(MinecraftClient.getInstance().player.getActiveHand());
             swingHandTicks = ticks;
             swingHandInProgress = true;

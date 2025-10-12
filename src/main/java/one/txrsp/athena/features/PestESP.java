@@ -58,7 +58,7 @@ public class PestESP {
         });
 
         WorldRenderEvents.AFTER_ENTITIES.register(context -> {
-            if (!AthenaConfig.pestESP) return;
+            if (!AthenaConfig.Farming.pestESP) return;
             if (!DEBUG) {
                 if (!Utils.isInGarden()) return;
             }

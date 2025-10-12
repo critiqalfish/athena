@@ -4,17 +4,20 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.loader.impl.lib.sat4j.core.Vec;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.TrapdoorBlock;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.Entity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import one.txrsp.athena.render.RenderUtils;
+import one.txrsp.athena.utils.Utils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,12 +41,52 @@ public class PathFollower {
     private static float pitchVelocity = 0;
     public static BlockPos goal;
     private static final Random random = new Random();
+    private static Vec3d lastCheckPos = null;
+    private static long lastCheckTime = 0;
+    private static boolean isStuck = false;
+    private static Vec3d targetLock = null;
 
     public static void init() {
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             if (mc.player == null) return;
 
             if (following) {
+                Vec3d currentPos = mc.player.getPos();
+                long now = System.currentTimeMillis();
+
+                if (lastCheckPos == null) {
+                    lastCheckPos = currentPos;
+                    lastCheckTime = now;
+                    return;
+                }
+
+                if (now - lastCheckTime > 5000) {
+                    double distSq = currentPos.squaredDistanceTo(lastCheckPos);
+
+                    if (distSq < 8) {
+                        isStuck = true;
+                        Utils.AthenaPrint(Text.literal("pathfollower possibly stuck, restarting"));
+                        BlockPos newGoal = goal;
+                        Vec3d newTargetLock = targetLock;
+                        stop();
+
+                        if (!AStarPathfinder.isPathfinding) {
+                            pathfind(newGoal, newTargetLock, success -> {
+                                if (success) {
+                                    Utils.AthenaPrint(Text.literal("following path. nodes: " + path.size()));
+                                } else {
+                                    Utils.AthenaPrint(Text.literal("no path found :("));
+                                }
+                            });
+                        }
+                    } else {
+                        isStuck = false;
+                    }
+
+                    lastCheckPos = currentPos;
+                    lastCheckTime = now;
+                }
+
                 lastJump++;
                 if (!mc.player.getAbilities().flying) {
                     switch (flightToggleTimer) {
@@ -80,7 +123,7 @@ public class PathFollower {
         });
     }
 
-    public static void pathfind(BlockPos goal, Consumer<Boolean> callback) {
+    public static void pathfind(BlockPos goal, Vec3d targetLock, Consumer<Boolean> callback) {
         ClientWorld world = MinecraftClient.getInstance().world;
         BlockPos playerPos = MinecraftClient.getInstance().player.getBlockPos();
         AStarPathfinder.findPathAsync(playerPos, goal, world).thenAccept(path -> {
@@ -93,6 +136,8 @@ public class PathFollower {
                 currentIndex = 0;
                 flightToggleTimer = 4;
                 lastJump = 0;
+                isStuck = false;
+                PathFollower.targetLock = targetLock;
             }
             callback.accept(success);
         });
@@ -141,7 +186,13 @@ public class PathFollower {
 
         float yaw = (float) MathHelper.wrapDegrees(Math.toDegrees(Math.atan2(ez, ex)) - 90.0);
         float pitch = (float) -Math.toDegrees(Math.atan2(ey, Math.sqrt(ex * ex + ez * ez)));
-        if (currentIndex == path.size() - 1 && playerPos.squaredDistanceTo(targetCenter) < 160) pitch = 80;
+        if (currentIndex == path.size() - 1 && playerPos.squaredDistanceTo(targetCenter) < 160 && targetLock != null) {
+            double tex = targetLock.x - eyePos.x;
+            double tey = targetLock.y + 1 - eyePos.y;
+            double tez = targetLock.z - eyePos.z;
+            yaw = (float) MathHelper.wrapDegrees(Math.toDegrees(Math.atan2(tez, tex)) - 90.0);
+            pitch = (float) -Math.toDegrees(Math.atan2(tey, Math.sqrt(tex * tex + tez * tez)));
+        }
         else pitch = MathHelper.clamp(pitch, -20, 20);
 
         Vec3d vel = mc.player.getVelocity();

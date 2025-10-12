@@ -24,9 +24,9 @@ public class Crops {
             case "block.minecraft.cocoa" -> CROP.COCOA;
             case "block.minecraft.melon" -> CROP.MELON;
             case "block.minecraft.red_mushroom", "block.minecraft.brown_mushroom" -> CROP.MUSHROOM;
-            case "block.minecraft.nether_warts" -> CROP.WARTS;
+            case "block.minecraft.nether_wart" -> CROP.WARTS;
             case "block.minecraft.potatoes" -> CROP.POTATO;
-            case "block.minecraft.pumpkin" -> CROP.PUMPKIN;
+            case "block.minecraft.carved_pumpkin" -> CROP.PUMPKIN;
             case "block.minecraft.sugar_cane" -> CROP.CANE;
             case "block.minecraft.wheat" -> CROP.WHEAT;
             default -> CROP.NONE;

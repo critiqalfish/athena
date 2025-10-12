@@ -33,7 +33,7 @@ public class PetSwitcher {
 
             if (isSwitching) {
                 if (mc.currentScreen != null && !mc.currentScreen.getTitle().getString().startsWith("Pets")) {
-                    mc.currentScreen.close();
+                    OnceAgain.executeWithCooldown("screenclose", 20, () -> {MinecraftClient.getInstance().currentScreen.close();});
                 } else if (mc.currentScreen == null) {
                     OnceAgain.executeWithCooldown("petscommand", 60, () -> {
                         MinecraftClient.getInstance().player.networkHandler.sendChatCommand("pets");

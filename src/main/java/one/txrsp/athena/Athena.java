@@ -6,10 +6,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import one.txrsp.athena.commands.AthenaCommand;
 import one.txrsp.athena.config.AthenaConfig;
-import one.txrsp.athena.features.FramignAuto;
-import one.txrsp.athena.features.PestESP;
-import one.txrsp.athena.features.PetSwitcher;
-import one.txrsp.athena.features.SimpleAutoFisher;
+import one.txrsp.athena.features.*;
 import one.txrsp.athena.pathfinding.PathFollower;
 import one.txrsp.athena.utils.KeyPressHelper;
 import one.txrsp.athena.utils.OnceAgain;
@@ -34,18 +31,14 @@ public class Athena implements ClientModInitializer {
 		Path configDir = FabricLoader.getInstance().getConfigDir();
 		Path oldPath = configDir.resolve("HKTools.jsonc");
 		Path newPath = configDir.resolve("Athena (HKTools).jsonc");
+		Path newNewPath = configDir.resolve("athena.jsonc");
 
 		// migrate old config name
 		if (Files.exists(oldPath) && !Files.exists(newPath)) {
-			try {
-				Files.copy(oldPath, newPath, StandardCopyOption.REPLACE_EXISTING);
-				System.out.println("[Athena] Migrated old config: " + oldPath.getFileName() + " → " + newPath.getFileName());
-
-				Files.deleteIfExists(oldPath);
-				System.out.println("[Athena] Deleted old config: " + oldPath.getFileName());
-			} catch (IOException e) {
-				System.err.println("[Athena] Failed to migrate config: " + e.getMessage());
-			}
+			migrateConfig(oldPath, newPath);
+		}
+		else if (Files.exists(newPath) && !Files.exists(newNewPath)) {
+			migrateConfig(newPath, newNewPath);
 		}
 
 		AthenaCommand.init();
@@ -56,6 +49,19 @@ public class Athena implements ClientModInitializer {
 		KeyPressHelper.init();
 		OnceAgain.init();
 		PetSwitcher.init();
+		AutoVisitors.init();
 		CONFIG.register(AthenaConfig.class);
+	}
+
+	private static void migrateConfig(Path oldPath, Path newPath) {
+		try {
+			Files.copy(oldPath, newPath, StandardCopyOption.REPLACE_EXISTING);
+			LOGGER.info("Migrated old config: " + oldPath.getFileName() + " → " + newPath.getFileName());
+
+			//Files.deleteIfExists(oldPath);
+			LOGGER.info("Deleted old config: " + oldPath.getFileName());
+		} catch (IOException e) {
+			LOGGER.info("Failed to migrate config: " + e.getMessage());
+		}
 	}
 }

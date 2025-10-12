@@ -6,8 +6,11 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.rendering.v1.HudLayerRegistrationCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.event.client.player.ClientPlayerBlockBreakEvents;
+import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.minecraft.block.Block;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
@@ -16,6 +19,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
+import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.*;
 import one.txrsp.athena.Athena;
@@ -24,13 +28,16 @@ import one.txrsp.athena.config.AthenaConfig;
 import one.txrsp.athena.mixin.InGameHudAccessor;
 import one.txrsp.athena.pathfinding.AStarPathfinder;
 import one.txrsp.athena.pathfinding.PathFollower;
+import one.txrsp.athena.render.RenderUtils;
 import one.txrsp.athena.utils.Crops;
 import one.txrsp.athena.utils.KeyPressHelper;
 import one.txrsp.athena.utils.OnceAgain;
 import one.txrsp.athena.utils.Utils;
 import org.lwjgl.glfw.GLFW;
 
+import java.awt.*;
 import java.util.*;
+import java.util.List;
 
 import static one.txrsp.athena.Athena.DEBUG;
 import static one.txrsp.athena.Athena.LOGGER;
@@ -42,6 +49,7 @@ public class FramignAuto {
     private static boolean active = false;
     private static boolean wasActive = false;
     private static BlockPos stoppedBlock = null;
+    private static boolean renderStoppedBlock = false;
     private static List<String> heldKeys = new ArrayList<>();
     public static List<String> actionPointsList = new ArrayList<>();
     public static Map<String, KeyBinding> keybindsTranslation;
@@ -66,6 +74,8 @@ public class FramignAuto {
     private static float lastPitch = Float.NaN;
     private static double lastMouseX = Float.NaN;
     private static double lastMouseY = Float.NaN;
+    private static double lastMouseDx = Float.NaN;
+    private static double lastMouseDy = Float.NaN;
     private static boolean maybeMacroCheck = false;
 
     public static void init() {
@@ -100,10 +110,14 @@ public class FramignAuto {
             }
             if (actionPointsList.contains("empty")) {
                 actionPointsList.clear();
-                Collections.addAll(actionPointsList, AthenaConfig.actionPoints);
+                Collections.addAll(actionPointsList, AthenaConfig.Farming.actionPoints);
             }
             if (!DEBUG) {
-                if (!Utils.isInGarden()) {stoppedBlock = null; return;}
+                if (active && !Utils.isInGarden()) {
+                    active = false;
+                    wasActive = true;
+                }
+                renderStoppedBlock = Utils.isInGarden();
             }
 
             currentCrop = Crops.getCropForTool(client.player.getInventory().getSelectedStack().getName().getString());
@@ -162,7 +176,7 @@ public class FramignAuto {
                 client.inGameHud.clearTitle();
             }
 
-            if (keybind.wasPressed()) active = !active;
+            if (Utils.isInGarden() && keybind.wasPressed()) active = !active;
 
             if (active) {
                 if (!wasActive) {
@@ -172,7 +186,7 @@ public class FramignAuto {
                     waitForTP = false;
                     startTimestamp = System.currentTimeMillis();
                     maybeMacroCheck = false;
-                    if (AthenaConfig.autoPetSwitch) PetSwitcher.switchPet("Mooshroom Cow");
+                    if (AthenaConfig.Farming.autoPetSwitch) PetSwitcher.switchPet("Mooshroom Cow");
                 }
 
                 if (lastPos != null && currentPos.distanceTo(lastPos) < 0.001) {
@@ -183,8 +197,8 @@ public class FramignAuto {
 
                 lastPos = currentPos;
 
-                if (PestESP.totalPests >= AthenaConfig.autoPestThreshold && !isPestRemoving && AthenaConfig.autoPest) {
-                    if (AthenaConfig.autoPestWarpWait) {
+                if (PestESP.totalPests >= AthenaConfig.Farming.autoPestThreshold && !isPestRemoving && AthenaConfig.Farming.autoPest) {
+                    if (AthenaConfig.Farming.autoPestWarpWait) {
                         autoPestNextWarp = true;
                     } else {
                         initiateAutoPest(client);
@@ -192,11 +206,11 @@ public class FramignAuto {
                     }
                 }
 
-                if (isPestRemoving && AthenaConfig.autoPest) {
+                if (isPestRemoving && AthenaConfig.Farming.autoPest) {
                     rotate = false;
 
                     if (!PestESP.pestPlots.isEmpty()) {
-                        if (AthenaConfig.autoPetSwitch && !Objects.equals(PetSwitcher.targetPet, "Hedgehog")) {
+                        if (AthenaConfig.Farming.autoPetSwitch && !Objects.equals(PetSwitcher.targetPet, "Hedgehog")) {
                             PetSwitcher.switchPet("Hedgehog");
                         } else if (PetSwitcher.isSwitching) {
                             // chill out
@@ -225,7 +239,7 @@ public class FramignAuto {
                                             (box.minZ + box.maxZ) / 2.0
                                     );
                                     if (!AStarPathfinder.isPathfinding) {
-                                        PathFollower.pathfind(pestPos, success -> {
+                                        PathFollower.pathfind(pestPos, box.getCenter(), success -> {
                                             if (success) {
 
                                             }
@@ -234,7 +248,7 @@ public class FramignAuto {
                                 } else {
                                     PathFollower.stop();
                                 }
-                            } else if (!PestESP.pests.isEmpty() && PathFollower.goal.getSquaredDistance(PestESP.pests.getFirst().getCenter()) > 144) {
+                            } else if (!PestESP.pests.isEmpty() && PathFollower.goal.getSquaredDistance(PestESP.pests.getFirst().getCenter()) > 100) {
                                 Box box = PestESP.pests.getFirst();
                                 BlockPos pestPos = BlockPos.ofFloored(
                                         (box.minX + box.maxX) / 2.0,
@@ -242,7 +256,7 @@ public class FramignAuto {
                                         (box.minZ + box.maxZ) / 2.0
                                 );
                                 if (!AStarPathfinder.isPathfinding) {
-                                    PathFollower.pathfind(pestPos, success -> {
+                                    PathFollower.pathfind(pestPos, box.getCenter(), success -> {
                                         if (success) {
 
                                         }
@@ -262,9 +276,9 @@ public class FramignAuto {
                         client.options.useKey.setPressed(false);
                         client.options.forwardKey.setPressed(false);
                         client.player.getInventory().setSelectedSlot(originSlot);
-                        if (AthenaConfig.autoPetSwitch) PetSwitcher.switchPet("Mooshroom Cow");
+                        if (AthenaConfig.Farming.autoPetSwitch) PetSwitcher.switchPet("Mooshroom Cow");
 
-                        if (AthenaConfig.autoPestWarpWait) {
+                        if (AthenaConfig.Farming.autoPestWarpWait) {
                             wasPestRemoving = false;
                             startTimestamp = System.currentTimeMillis();
                             client.player.networkHandler.sendChatCommand("warp garden");
@@ -288,7 +302,7 @@ public class FramignAuto {
                             if (Utils.allVisibleChunksLoaded(client)) {
                                 client.options.forwardKey.setPressed(false);
                                 if (!AStarPathfinder.isPathfinding) {
-                                    PathFollower.pathfind(originBlock, success -> {
+                                    PathFollower.pathfind(originBlock, null, success -> {
                                         if (success) {
 
                                         }
@@ -301,7 +315,10 @@ public class FramignAuto {
                     }
                 } else if (!isPestRemoving) {
                     // normal farming
-                    client.options.attackKey.setPressed(true);
+
+                    OnceAgain.executeWithCooldown("attackkey", 1, () -> {
+                        client.options.attackKey.setPressed(true);
+                    });
 
                     if (client.player.getAbilities().flying) client.options.sneakKey.setPressed(true);
                     else client.options.sneakKey.setPressed(false);
@@ -316,15 +333,17 @@ public class FramignAuto {
                         double mouseX = client.mouse.getX();
                         double mouseY = client.mouse.getY();
 
-                        double mouseDx = mouseX - lastMouseX;
-                        double mouseDy = mouseY - lastMouseY;
+                        double mouseDx = Math.abs(mouseX - lastMouseX);
+                        double mouseDy = Math.abs(mouseY - lastMouseY);
 
                         if (System.currentTimeMillis() - startTimestamp > 2000 && (Math.abs(yawDiff) > 5.0f || Math.abs(pitchDiff) > 5.0f)) {
-                            if (Math.abs(mouseDx) < 0.1 && Math.abs(mouseDy) < 0.1) {
-                                maybeMacroCheck = true;
-                                rotate = false;
-                                LOGGER.info("Unexpected rotation detected! ΔYaw=" + yaw + " ΔPitch=" + pitch);
-                                AthenaPrint(Text.literal("Unexpected rotation detected! ΔYaw=" + yaw + " ΔPitch=" + pitch));
+                            //LOGGER.info("mDx: " + mouseDx + " mDy: " + mouseDy + " lmDx: " + lastMouseDx + " lmDy: " + lastMouseDy);
+                            if (mouseDx == lastMouseDx && mouseDy == lastMouseDy) {
+                                if (Math.abs(mouseDx) < 0.1 && Math.abs(mouseDy) < 0.1) {
+                                    maybeMacroCheck = true;
+                                    rotate = false;
+                                    AthenaPrint(Text.literal("Unexpected rotation detected! ΔYaw=" + yaw + " ΔPitch=" + pitch));
+                                }
                             }
                         }
 
@@ -332,17 +351,21 @@ public class FramignAuto {
                         lastPitch = pitch;
                         lastMouseX = mouseX;
                         lastMouseY = mouseY;
+                        lastMouseDx = mouseDx;
+                        lastMouseDy = mouseDy;
                     }
                     else {
                         lastYaw = client.player.getYaw();
                         lastPitch = client.player.getPitch();
                         lastMouseX = client.mouse.getX();
                         lastMouseY = client.mouse.getY();
+                        lastMouseDx = 0.0;
+                        lastMouseDy = 0.0;
                     }
 
                     if (!maybeMacroCheck) rotate = true;
 
-                    for (String s : AthenaConfig.actionPoints) {
+                    for (String s : AthenaConfig.Farming.actionPoints) {
                         if (s.startsWith(currentCrop.name() + "|" + client.player.getBlockPos().toString())) {
                             if (!wasActive || stillTicks >= 1) {
                                 String keys = s.substring(s.lastIndexOf("}") + 1);
@@ -363,11 +386,11 @@ public class FramignAuto {
 
                             boolean removed = FramignAuto.actionPointsList.removeIf(p -> p.startsWith(MinecraftClient.getInstance().player.getBlockPos().toString()));
                             if (removed) AthenaPrint(Text.literal("removed this point"));
-                            AthenaConfig.actionPoints = FramignAuto.actionPointsList.toArray(new String[0]);
+                            AthenaConfig.Farming.actionPoints = FramignAuto.actionPointsList.toArray(new String[0]);
                             Athena.CONFIG.saveConfig(AthenaConfig.class);
 
                             FramignAuto.actionPointsList.add(currentCrop.name() + "|" + MinecraftClient.getInstance().player.getBlockPos().toString() + keys);
-                            AthenaConfig.actionPoints = FramignAuto.actionPointsList.toArray(new String[0]);
+                            AthenaConfig.Farming.actionPoints = FramignAuto.actionPointsList.toArray(new String[0]);
                             Athena.CONFIG.saveConfig(AthenaConfig.class);
                             AthenaPrint(Text.literal("added this point"));
                             Athena.CONFIG.saveConfig(AthenaConfig.class);
@@ -379,7 +402,7 @@ public class FramignAuto {
                         rotate = false;
                     }
 
-                    if (Math.abs(MathHelper.wrapDegrees(client.player.getYaw() - AthenaConfig.yaw)) < 5) {
+                    if (Math.abs(MathHelper.wrapDegrees(client.player.getYaw() - AthenaConfig.Farming.yaw)) < 5) {
                         for (String key : heldKeys) {
                             if (Objects.equals(key, ".")) {
                                 if (autoPestNextWarp) {
@@ -419,7 +442,7 @@ public class FramignAuto {
                 wasPestRemoving = false;
                 waitForTP = false;
                 wasActive = false;
-                stoppedBlock = client.player.getBlockPos();
+                if (Utils.isInGarden()) stoppedBlock = client.player.getBlockPos();
                 client.options.pauseOnLostFocus = true;
                 maybeMacroCheck = false;
 
@@ -435,12 +458,12 @@ public class FramignAuto {
             }
 
             if (rotate) {
-                smoothRotateTo(AthenaConfig.yaw, AthenaConfig.pitch);
+                smoothRotateTo(AthenaConfig.Farming.yaw, AthenaConfig.Farming.pitch);
             }
 
-            if (stoppedBlock != null) renderBlockMark(context.matrixStack(), stoppedBlock, 1f, 0f, 0.2f, 0.9f, false, "");
+            if (stoppedBlock != null && renderStoppedBlock) renderBlockMark(context.matrixStack(), stoppedBlock, 1f, 0f, 0.2f, 0.9f, false, "");
 
-            if (AthenaConfig.showActionPoints && !actionPointsList.contains("empty")) {
+            if (AthenaConfig.Farming.showActionPoints && !actionPointsList.contains("empty")) {
                 for (String p : actionPointsList) {
 
                     if (p.contains("|")) {
@@ -463,6 +486,35 @@ public class FramignAuto {
                 onBlockBroken(state.getBlock());
             }
         });
+
+        AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) -> {
+            if (world.isClient) {
+                Block block = world.getBlockState(pos).getBlock();
+
+                if (Objects.equals(block.getTranslationKey(), "block.minecraft.cactus")) {
+                    onBlockBroken(block);
+                }
+
+            }
+            return ActionResult.PASS;
+        });
+
+        HudRenderCallback.EVENT.register(((drawContext, renderTickCounter) -> {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if (mc.player == null) return;
+            if (!AthenaConfig.statusIndicator) return;
+            if (!Utils.isInGarden()) return;
+
+            if (active) {
+                if (maybeMacroCheck) {
+                    RenderUtils.drawStatusLabel(drawContext, "Athena", Color.ORANGE);
+                } else {
+                    RenderUtils.drawStatusLabel(drawContext, "Athena", Color.GREEN);
+                }
+            } else if (!active) {
+                RenderUtils.drawStatusLabel(drawContext, "Athena", Color.RED);
+            }
+        }));
     }
 
     private static void initiateAutoPest (MinecraftClient mc) {
@@ -488,7 +540,9 @@ public class FramignAuto {
 
     private static void onBlockBroken(Block block) {
         long now = System.currentTimeMillis();
+        LOGGER.info("broke " + block.getTranslationKey() + " " + Crops.getCropForBlock(block));
         if (Crops.getCropForBlock(block) == currentCrop) {
+            LOGGER.info(currentCrop.name());
             brokenCropTimestamps.add(now);
         }
     }
@@ -503,7 +557,7 @@ public class FramignAuto {
         float pitchDiff = targetPitch - currentPitch;
 
         double dist = Math.hypot(yawDiff, pitchDiff);
-        if (dist < 0.1) {
+        if (dist < 0.3) {
             mc.player.setYaw(targetYaw);
             mc.player.setPitch(targetPitch);
             return;
