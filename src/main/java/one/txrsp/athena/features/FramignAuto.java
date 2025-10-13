@@ -11,6 +11,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.event.client.player.ClientPlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
+import net.fabricmc.fabric.mixin.client.gametest.input.MouseAccessor;
 import net.minecraft.block.Block;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
@@ -21,6 +22,7 @@ import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
+import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.*;
 import one.txrsp.athena.Athena;
 import one.txrsp.athena.commands.AthenaCommand;
@@ -315,10 +317,12 @@ public class FramignAuto {
                     }
                 } else if (!isPestRemoving) {
                     // normal farming
-
-                    OnceAgain.executeWithCooldown("attackkey", 1, () -> {
+                    if (!OnceAgain.swingHandInProgress && !PetSwitcher.isSwitching) {
                         client.options.attackKey.setPressed(true);
-                    });
+                        KeyBinding.onKeyPressed(InputUtil.Type.MOUSE.createFromCode(0));
+                    } else if (PetSwitcher.isSwitching) {
+                        client.options.attackKey.setPressed(false);
+                    }
 
                     if (client.player.getAbilities().flying) client.options.sneakKey.setPressed(true);
                     else client.options.sneakKey.setPressed(false);
@@ -494,7 +498,6 @@ public class FramignAuto {
                 if (Objects.equals(block.getTranslationKey(), "block.minecraft.cactus")) {
                     onBlockBroken(block);
                 }
-
             }
             return ActionResult.PASS;
         });
@@ -541,7 +544,6 @@ public class FramignAuto {
     private static void onBlockBroken(Block block) {
         long now = System.currentTimeMillis();
         if (Crops.getCropForBlock(block) == currentCrop) {
-            LOGGER.info(currentCrop.name());
             brokenCropTimestamps.add(now);
         }
     }

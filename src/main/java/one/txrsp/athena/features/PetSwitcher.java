@@ -1,14 +1,11 @@
 package one.txrsp.athena.features;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.text.Text;
-import one.txrsp.athena.Athena;
 import one.txrsp.athena.utils.OnceAgain;
 import one.txrsp.athena.utils.Utils;
 
@@ -18,8 +15,10 @@ import static one.txrsp.athena.Athena.LOGGER;
 
 public class PetSwitcher {
     public static boolean isSwitching = false;
+    public static boolean wasSwitching = false;
     public static String targetPet;
     public static String activePet;
+    private static int ticksToNotSwitching = -1;
 
     public static void init() {
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
@@ -32,38 +31,49 @@ public class PetSwitcher {
             });
 
             if (isSwitching) {
-                if (mc.currentScreen != null && !mc.currentScreen.getTitle().getString().startsWith("Pets")) {
-                    OnceAgain.executeWithCooldown("screenclose", 20, () -> {MinecraftClient.getInstance().currentScreen.close();});
-                } else if (mc.currentScreen == null) {
-                    OnceAgain.executeWithCooldown("petscommand", 60, () -> {
-                        MinecraftClient.getInstance().player.networkHandler.sendChatCommand("pets");
-                    });
+                if (ticksToNotSwitching == 0) {
+                    isSwitching = false;
+                    wasSwitching = true;
                 }
+                if (ticksToNotSwitching != -1) ticksToNotSwitching--;
+                //LOGGER.info("" + ticksToNotSwitching);
 
-                if (mc.currentScreen != null && mc.currentScreen.getTitle().getString().startsWith("Pets")) {
-                    if (mc.currentScreen instanceof HandledScreen<?> handledScreen) {
-                        ScreenHandler handler = handledScreen.getScreenHandler();
-                        int notEmpty = 0;
-                        for (int i = 0; i < handler.slots.size(); i++) {
-                            var slot = handler.slots.get(i);
-                            var stack = slot.getStack();
+                if (ticksToNotSwitching == -1) {
+                    wasSwitching = false;
+                    if (mc.currentScreen != null && !mc.currentScreen.getTitle().getString().startsWith("Pets")) {
+                        OnceAgain.executeWithCooldown("screenclose", 20, () -> {MinecraftClient.getInstance().currentScreen.close();});
+                    } else if (mc.currentScreen == null) {
+                        OnceAgain.executeWithCooldown("petscommand", 60, () -> {
+                            MinecraftClient.getInstance().player.networkHandler.sendChatCommand("pets");
+                        });
+                    }
 
-                            if (i < 54 && !stack.isEmpty()) notEmpty++;
-                        }
-
-                        if (notEmpty >= 54) {
+                    if (mc.currentScreen != null && mc.currentScreen.getTitle().getString().startsWith("Pets")) {
+                        if (mc.currentScreen instanceof HandledScreen<?> handledScreen) {
+                            ScreenHandler handler = handledScreen.getScreenHandler();
+                            int notEmpty = 0;
                             for (int i = 0; i < handler.slots.size(); i++) {
                                 var slot = handler.slots.get(i);
                                 var stack = slot.getStack();
 
-                                if (!stack.isEmpty() && stack.getCustomName().getString().contains(targetPet)) {
-                                    mc.interactionManager.clickSlot(handler.syncId, slot.id, 0, SlotActionType.PICKUP, mc.player);
+                                if (i < 54 && !stack.isEmpty()) notEmpty++;
+                            }
+
+                            if (notEmpty >= 54) {
+                                for (int i = 0; i < handler.slots.size(); i++) {
+                                    var slot = handler.slots.get(i);
+                                    var stack = slot.getStack();
+
+                                    if (!stack.isEmpty() && stack.getCustomName().getString().contains(targetPet)) {
+                                        mc.interactionManager.clickSlot(handler.syncId, slot.id, 0, SlotActionType.PICKUP, mc.player);
+                                        ticksToNotSwitching = 10;
+                                    }
                                 }
                             }
-                            isSwitching = false;
                         }
                     }
                 }
+
             }
         });
     }

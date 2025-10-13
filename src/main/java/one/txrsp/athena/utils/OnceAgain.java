@@ -13,7 +13,7 @@ import java.util.Map;
 import static one.txrsp.athena.Athena.LOGGER;
 
 public class OnceAgain {
-    private static boolean swingHandInProgress = false;
+    public static boolean swingHandInProgress = false;
     private static int swingHandTicks;
     private static boolean noSneak = false;
 
