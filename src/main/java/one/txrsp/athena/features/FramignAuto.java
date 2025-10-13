@@ -158,23 +158,23 @@ public class FramignAuto {
 
             if (maybeMacroCheck) {
                 client.inGameHud.setTitle(Text.literal("!!!  WARNING  !!!").formatted(Formatting.BOLD).formatted(Formatting.RED));
-                client.inGameHud.setSubtitle(Text.literal("LOW BPS OR YAW/PITCH CHANGE DETECTED. POTENTIAL MACRO CHECK").formatted(Formatting.BOLD).formatted(Formatting.RED));
+                client.inGameHud.setSubtitle(Text.literal("POTENTIAL MACRO CHECK").formatted(Formatting.BOLD).formatted(Formatting.RED));
                 client.inGameHud.setTitleTicks(0, 400, 0);
                 client.player.playSoundToPlayer(SoundEvents.ENTITY_GENERIC_EXPLODE.value(),
                         SoundCategory.MASTER,
-                        1.0f,
+                        10.0f,
                         1.0f);
                 client.player.playSoundToPlayer(SoundEvents.ENTITY_GENERIC_EXPLODE.value(),
                         SoundCategory.MASTER,
-                        1.0f,
+                        10.0f,
                         0.5f);
                 client.player.playSoundToPlayer(SoundEvents.ENTITY_PLAYER_HURT,
                         SoundCategory.MASTER,
-                        1.0f,
+                        10.0f,
                         1.0f);
                 client.player.playSoundToPlayer(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP,
                         SoundCategory.MASTER,
-                        1.0f,
+                        10.0f,
                         1.5f);
             }
             else if (((InGameHudAccessor) MinecraftClient.getInstance().inGameHud).getCurrentTitle() != null && Objects.equals(((InGameHudAccessor) MinecraftClient.getInstance().inGameHud).getCurrentTitle().getString(), "!!!  WARNING  !!!")) {
@@ -542,6 +542,7 @@ public class FramignAuto {
         HudRenderCallback.EVENT.register(((drawContext, renderTickCounter) -> {
             MinecraftClient mc = MinecraftClient.getInstance();
             if (mc.player == null) return;
+            if (maybeMacroCheck) RenderUtils.renderFlashingOverlay(drawContext);
             if (!AthenaConfig.statusIndicator) return;
             if (!Utils.isInGarden()) return;
 

@@ -41,6 +41,10 @@ public class RenderUtils {
             RenderLayer.MultiPhaseParameters.builder().build(false)
     );
 
+    private static float hue = 0f;
+    private static int alpha = 0;
+    private static boolean increasing = true;
+
     public static void renderBlockMark(MatrixStack matrices, BlockPos pos, float r, float g, float b, float alpha, boolean withEyeLine, String text) {
         MinecraftClient client = MinecraftClient.getInstance();
         TextRenderer textRenderer = client.textRenderer;
@@ -226,5 +230,34 @@ public class RenderUtils {
 
             context.fill(xs, cy + y, xe, cy + y + 1, color.getRGB());
         }
+    }
+
+    public static void renderFlashingOverlay(DrawContext context) {
+        int width = context.getScaledWindowWidth();
+        int height = context.getScaledWindowHeight();
+
+        hue += 0.01f;
+        if (hue > 1f) hue = 0f;
+
+        java.awt.Color color = java.awt.Color.getHSBColor(hue, 1f, 1f);
+
+        if (increasing) alpha += 10;
+        else alpha -= 10;
+
+        if (alpha >= 120) {
+            alpha = 120;
+            increasing = false;
+        } else if (alpha <= 40) {
+            alpha = 40;
+            increasing = true;
+        }
+
+        // convert ARGB -> 0xAARRGGBB
+        int argb = (alpha << 24)
+                | (color.getRed() << 16)
+                | (color.getGreen() << 8)
+                | (color.getBlue());
+
+        context.fill(0, 0, width, height, argb);
     }
 }
