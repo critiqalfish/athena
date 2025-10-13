@@ -22,8 +22,10 @@ import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
+import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.*;
+import net.minecraft.world.RaycastContext;
 import one.txrsp.athena.Athena;
 import one.txrsp.athena.commands.AthenaCommand;
 import one.txrsp.athena.config.AthenaConfig;
@@ -79,6 +81,7 @@ public class FramignAuto {
     private static double lastMouseDx = Float.NaN;
     private static double lastMouseDy = Float.NaN;
     private static boolean maybeMacroCheck = false;
+    public static boolean holdLeftClick = false;
 
     public static void init() {
         actionPointsList.add("empty");
@@ -209,6 +212,7 @@ public class FramignAuto {
                 }
 
                 if (isPestRemoving && AthenaConfig.Farming.autoPest) {
+                    //holdLeftClick = false;
                     rotate = false;
 
                     if (!PestESP.pestPlots.isEmpty()) {
@@ -274,6 +278,7 @@ public class FramignAuto {
                         isPestRemoving = false;
                         waitForTP = false;
                         PathFollower.stop();
+                        //holdLeftClick = false;
                         client.options.attackKey.setPressed(false);
                         client.options.useKey.setPressed(false);
                         client.options.forwardKey.setPressed(false);
@@ -317,11 +322,43 @@ public class FramignAuto {
                     }
                 } else if (!isPestRemoving) {
                     // normal farming
+                    if (PetSwitcher.wasSwitching) {
+                        //client.options.attackKey.setPressed(false);
+                        //KeyBinding.setKeyPressed(InputUtil.Type.MOUSE.createFromCode(GLFW.GLFW_MOUSE_BUTTON_LEFT), false);
+                        PetSwitcher.wasSwitching = false;
+                        client.mouse.lockCursor();
+                        //holdLeftClick = false;
+                        return;
+                    }
+
                     if (!OnceAgain.swingHandInProgress && !PetSwitcher.isSwitching) {
-                        client.options.attackKey.setPressed(true);
-                        KeyBinding.onKeyPressed(InputUtil.Type.MOUSE.createFromCode(0));
+                        //client.options.attackKey.setPressed(true);
+                        //KeyBinding.setKeyPressed(InputUtil.Type.MOUSE.createFromCode(GLFW.GLFW_MOUSE_BUTTON_LEFT), true);
+                        //KeyBinding.onKeyPressed(InputUtil.Type.MOUSE.createFromCode(GLFW.GLFW_MOUSE_BUTTON_LEFT));
+                        //holdLeftClick = true;
+
+                        HitResult hit = client.crosshairTarget;
+
+                        if (hit != null && hit.getType() == HitResult.Type.BLOCK) {
+                            BlockHitResult bhr = (BlockHitResult) hit;
+                            client.player.swingHand(client.player.getActiveHand());
+                            client.interactionManager.attackBlock(bhr.getBlockPos(), bhr.getSide());
+                        } /*else if (hit == null || hit.getType() == HitResult.Type.MISS) {
+                            Vec3d eyes = client.player.getCameraPosVec(1f);
+                            Vec3d look = client.player.getRotationVec(1f);
+                            Vec3d end = eyes.add(look.multiply(4.5));
+                            BlockHitResult forwardHit = client.world.raycast(
+                                    new RaycastContext(eyes, end, RaycastContext.ShapeType.OUTLINE, RaycastContext.FluidHandling.NONE, client.player)
+                            );
+
+                            if (forwardHit.getType() == HitResult.Type.BLOCK) {
+                                client.interactionManager.attackBlock(forwardHit.getBlockPos(), forwardHit.getSide());
+                            }
+                        }*/
                     } else if (PetSwitcher.isSwitching) {
-                        client.options.attackKey.setPressed(false);
+                        //client.options.attackKey.setPressed(false);
+                        //holdLeftClick = false;
+                        //KeyBinding.setKeyPressed(InputUtil.Type.MOUSE.createFromCode(GLFW.GLFW_MOUSE_BUTTON_LEFT), false);
                     }
 
                     if (client.player.getAbilities().flying) client.options.sneakKey.setPressed(true);
@@ -422,7 +459,6 @@ public class FramignAuto {
                             } else {
                                 waitForWarp = false;
                                 keybindsTranslation.get(key).setPressed(true);
-                                client.options.attackKey.setPressed(true);
                             }
                         }
                     }
@@ -438,6 +474,7 @@ public class FramignAuto {
                 client.options.rightKey.setPressed(false);
                 client.options.backKey.setPressed(false);
                 client.options.attackKey.setPressed(false);
+                //holdLeftClick = false;
                 client.options.useKey.setPressed(false);
 
                 PathFollower.stop();
@@ -538,6 +575,7 @@ public class FramignAuto {
         mc.options.rightKey.setPressed(false);
         mc.options.backKey.setPressed(false);
         mc.options.attackKey.setPressed(false);
+        //holdLeftClick = false;
         mc.options.useKey.setPressed(false);
     }
 
