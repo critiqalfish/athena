@@ -36,7 +36,6 @@ public class PetSwitcher {
                     wasSwitching = true;
                 }
                 if (ticksToNotSwitching != -1) ticksToNotSwitching--;
-                //LOGGER.info("" + ticksToNotSwitching);
 
                 if (ticksToNotSwitching == -1) {
                     wasSwitching = false;
@@ -51,23 +50,30 @@ public class PetSwitcher {
                     if (mc.currentScreen != null && mc.currentScreen.getTitle().getString().startsWith("Pets")) {
                         if (mc.currentScreen instanceof HandledScreen<?> handledScreen) {
                             ScreenHandler handler = handledScreen.getScreenHandler();
-                            int notEmpty = 0;
+                            boolean hasLoaded = false;
                             for (int i = 0; i < handler.slots.size(); i++) {
                                 var slot = handler.slots.get(i);
                                 var stack = slot.getStack();
 
-                                if (i < 54 && !stack.isEmpty()) notEmpty++;
+                                if (i == 52 && stack.getCustomName() != null && Objects.equals(stack.getCustomName().getString(), "Sort")) hasLoaded = true;
                             }
 
-                            if (notEmpty >= 54) {
-                                for (int i = 0; i < handler.slots.size(); i++) {
+                            if (hasLoaded) {
+                                boolean foundPet = false;
+                                for (int i = 0; i < 54; i++) {
                                     var slot = handler.slots.get(i);
                                     var stack = slot.getStack();
 
+                                    //if (!stack.isEmpty()) LOGGER.info("pet: " + stack.getCustomName().getString());
                                     if (!stack.isEmpty() && stack.getCustomName().getString().contains(targetPet)) {
                                         mc.interactionManager.clickSlot(handler.syncId, slot.id, 0, SlotActionType.PICKUP, mc.player);
                                         ticksToNotSwitching = 10;
+                                        foundPet = true;
                                     }
+                                }
+                                if (!foundPet) {
+                                    Utils.AthenaPrint(Text.literal("pet " + targetPet + " not found"));
+                                    ticksToNotSwitching = 10;
                                 }
                             }
                         }

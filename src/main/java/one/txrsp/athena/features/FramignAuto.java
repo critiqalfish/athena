@@ -104,7 +104,7 @@ public class FramignAuto {
             }
             if (client.player == null) return;
             if (client.currentScreen != null) {
-                if (isPestRemoving && !client.currentScreen.getTitle().getString().contains("Pets") || isPestRemoving && Objects.equals(client.currentScreen.getTitle().getString(), "Stereo Harmony")) {
+                if (isPestRemoving && Objects.equals(client.currentScreen.getTitle().getString(), "Stereo Harmony")) {
                     OnceAgain.executeWithCooldown("screenclose", 20, () -> {
                         MinecraftClient.getInstance().currentScreen.close();
                     });
@@ -220,7 +220,7 @@ public class FramignAuto {
                             PetSwitcher.switchPet("Hedgehog");
                         } else if (PetSwitcher.isSwitching) {
                             // chill out
-                        } else if (!waitForTP && currentPlot != PestESP.pestPlots.getFirst()) {
+                        } else if (!PathFollower.following && !waitForTP && currentPlot != PestESP.pestPlots.getFirst()) {
                             waitForTP = true;
                             PathFollower.stop();
                             client.player.networkHandler.sendChatCommand("plottp " + PestESP.pestPlots.getFirst());

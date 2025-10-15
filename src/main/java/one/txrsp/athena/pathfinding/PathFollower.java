@@ -161,7 +161,7 @@ public class PathFollower {
         if (distance < 1) {
             if (currentIndex < path.size() - 1) {
                 currentIndex++;
-            } else if (currentIndex == path.size() - 1 && mc.player.getVelocity().length() < 0.1) {
+            } else if (currentIndex == path.size() - 1 && mc.player.getVelocity().length() < 0.2) {
                 currentIndex++;
             }
 
@@ -196,7 +196,7 @@ public class PathFollower {
         else pitch = MathHelper.clamp(pitch, -20, 20);
 
         Vec3d vel = mc.player.getVelocity();
-        double dot = vel.normalize().dotProduct(dir.normalize()); // 1 = moving toward node
+        double dot = vel.normalize().dotProduct(dir.normalize()); // 1 = moving toward node, -1 moving away
 
         smoothRotateTo(yaw, pitch);
 
@@ -211,12 +211,13 @@ public class PathFollower {
         if (mc.player.getAbilities().flying) {
             Vec3d lookVec = mc.player.getRotationVec(1.0f).normalize();
             Vec3d flatLook = new Vec3d(lookVec.x, 0, lookVec.z).normalize();
-            Vec3d frontPos = mc.player.getPos().add(flatLook);
+            Vec3d frontPos = mc.player.getPos().subtract(0, 0.250, 0).add(flatLook);
             BlockPos blockInFrontOfHead = BlockPos.ofFloored(frontPos).up(2);
             BlockPos blockInFrontOfFeet = BlockPos.ofFloored(frontPos);
             BlockState frontHeadState = world.getBlockState(blockInFrontOfHead);
             BlockState frontFeetState = mc.world.getBlockState(blockInFrontOfFeet);
             BlockState blockBelow = world.getBlockState(mc.player.getBlockPos().down());
+            BlockState blockAbove = world.getBlockState(mc.player.getBlockPos().up(2));
 
             BlockPos prevNode = currentIndex > 0 ? path.get(currentIndex - 1) : targetNode;
             Vec3d segmentStart = Vec3d.ofCenter(prevNode);
@@ -227,7 +228,8 @@ public class PathFollower {
             Vec3d projectedPoint;
 
             Vec3d segmentHoriz = new Vec3d(segmentDir.x, 0.0, segmentDir.z);
-            boolean isVerticalSegment = segmentHoriz.length() < 18.0;
+            //LOGGER.info("horiz: " + segmentHoriz.length());
+            boolean isVerticalSegment = segmentHoriz.length() < 15.0;
 
             if (isVerticalSegment) {
                 projectedPoint = new Vec3d(segmentStart.x, playerPosVec.y, segmentStart.z);
@@ -256,31 +258,40 @@ public class PathFollower {
             }
 
             if (Math.abs(MathHelper.wrapDegrees(mc.player.getYaw() - yaw)) < 15) {
-                if (segmentDir.length() > 20 && segmentHoriz.length() > 30) {
-                    if (horizontalDist > 12) {
-                        forward.setPressed(true);
-                        back.setPressed(false);
-                        sprint.setPressed(true);
-                    } else if (horizontalDist < 4 && vel.length() > 0.2) {
+                //LOGGER.info("horizontal dist: " + horizontalDist);
+                if (segmentHoriz.length() > 30 && horizontalDist > 10) {
+                    sprint.setPressed(true);
+                    forward.setPressed(true);
+                    back.setPressed(false);
+                } else if (horizontalDist < 8 && vel.length() > 0.45) {
+                    sprint.setPressed(false);
+                    forward.setPressed(false);
+                    back.setPressed(true);
+                } else if (horizontalDist < 1) {
+                    //LOGGER.info("1 vel: " + vel.length());
+                    if (vel.length() > 0.25) {
                         forward.setPressed(false);
                         back.setPressed(true);
-                    } else if (horizontalDist < 12 && vel.length() > 0.45) {
+                    } else {
                         forward.setPressed(true);
                         back.setPressed(false);
-                        sprint.setPressed(false);
                     }
-                    else {
+                } else if (horizontalDist < 2.5) {
+                    //LOGGER.info("2.5 vel: " + vel.length());
+                    if (vel.length() > 0.35) {
+                        forward.setPressed(false);
+                        back.setPressed(true);
+                    } else if (vel.length() > 0.23) {
+                        forward.setPressed(false);
+                        back.setPressed(false);
+                    } else {
                         forward.setPressed(true);
+                        back.setPressed(false);
                     }
                 } else {
-                    if (horizontalDist < 2 && vel.length() > 0.2) {
-                        forward.setPressed(false);
-                        back.setPressed(true);
-                    }
-                    else {
-                        forward.setPressed(true);
-                        back.setPressed(false);
-                    }
+                    forward.setPressed(true);
+                    back.setPressed(false);
+                    sprint.setPressed(false);
                 }
             } else {
                 forward.setPressed(false);
@@ -291,7 +302,8 @@ public class PathFollower {
             double sideOffset = offsetVec.dotProduct(rightVec);
             double sideThreshold = 0.5;
 
-            if (blockBelow.getBlock() instanceof TrapdoorBlock && blockBelow.get(TrapdoorBlock.OPEN)) {
+            if (blockBelow.getBlock() instanceof TrapdoorBlock && blockBelow.get(TrapdoorBlock.OPEN) ||
+                    blockAbove.getBlock() instanceof TrapdoorBlock && blockAbove.get(TrapdoorBlock.OPEN)) {
                 if (random.nextBoolean()) {
                     right.setPressed(true);
                     left.setPressed(false);
@@ -305,7 +317,7 @@ public class PathFollower {
             }
 
             if (currentIndex != 0) {
-                if (Math.abs(sideOffset) < 1.5) {
+                if (Math.abs(sideOffset) < 1) {
                     if (sideOffset > sideThreshold) {
                         left.setPressed(false);
                         right.setPressed(true);
@@ -332,7 +344,9 @@ public class PathFollower {
                 jump.setPressed(false);
                 if (AStarPathfinder.isPassable(world, mc.player.getBlockPos().down())) {
                     sneak.setPressed(true);
-                } else sneak.setPressed(false);
+                } else {
+                    sneak.setPressed(false);
+                }
             } else if (verticalOffset < -verticalTolerance) {
                 if (lastJump > 6) {
                     jump.setPressed(true);
@@ -348,9 +362,11 @@ public class PathFollower {
             //playerPos.distanceTo(blockInFrontOfHead.toCenterPos()) < 1 &&
             if (!AStarPathfinder.isPassable(world, blockInFrontOfHead) &&
                     AStarPathfinder.isPassable(world, blockInFrontOfHead.down()) &&
-                    AStarPathfinder.isPassable(world, blockInFrontOfHead.down(2))) {
+                    AStarPathfinder.isPassable(world, blockInFrontOfHead.down(2)) &&
+                    mc.player.getEyePos().distanceTo(blockInFrontOfHead.toCenterPos()) < 0.5) {
                 sneak.setPressed(true);
                 jump.setPressed(false);
+                LOGGER.info(world.getBlockState(blockInFrontOfHead).getBlock().getTranslationKey());
             }
 
             if (blockBelow.exceedsCube() || !AStarPathfinder.isPassable(world, blockInFrontOfFeet)) {
