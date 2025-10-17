@@ -20,7 +20,7 @@ public class Crops {
     public static CROP getCropForBlock(Block block) {
         return switch (block.getTranslationKey()) {
             case "block.minecraft.cactus" -> CROP.CACTUS;
-            case "block.minecraft.carrot" -> CROP.CARROT;
+            case "block.minecraft.carrots" -> CROP.CARROT;
             case "block.minecraft.cocoa" -> CROP.COCOA;
             case "block.minecraft.melon" -> CROP.MELON;
             case "block.minecraft.red_mushroom", "block.minecraft.brown_mushroom" -> CROP.MUSHROOM;

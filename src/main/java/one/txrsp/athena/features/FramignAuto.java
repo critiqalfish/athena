@@ -126,6 +126,7 @@ public class FramignAuto {
             }
 
             currentCrop = Crops.getCropForTool(client.player.getInventory().getSelectedStack().getName().getString());
+            LOGGER.info("crop: " + currentCrop);
             brokenCropTimestamps.removeIf(t -> System.currentTimeMillis() - t > 1000);
 
             List<String> lines = Utils.getScoreboardLines();
@@ -582,6 +583,7 @@ public class FramignAuto {
 
     private static void onBlockBroken(Block block) {
         long now = System.currentTimeMillis();
+        LOGGER.info("block: " + block.getTranslationKey());
         if (Crops.getCropForBlock(block) == currentCrop) {
             brokenCropTimestamps.add(now);
         }
