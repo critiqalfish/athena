@@ -32,5 +32,5 @@ jobs:
       - name: create release draft
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "build/libs/athena-fabric-1.21.5-?.?.?.jar,build/libs/athena-fabric-1.21.5-?.?.?b.jar"
+          artifacts: "build/libs/athena-fabric-1.21.5-+([0-9]).+([0-9]).+([0-9])?([a-z]).jar"
           draft: true
